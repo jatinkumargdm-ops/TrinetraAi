@@ -3,20 +3,28 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Crowd Intelligence API — real-time crowd density, risk prediction, alerts, and incident response
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
-    description: Health operations
+  - name: dashboard
+  - name: zones
+  - name: alerts
+  - name: incidents
+  - name: cameras
+  - name: predictions
+  - name: flows
+  - name: evacuation
+  - name: responders
+  - name: events
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +32,368 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Aggregate KPIs across all monitored zones
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
+  /dashboard/density-trend:
+    get:
+      operationId: getDensityTrend
+      tags: [dashboard]
+      summary: Aggregate density trend across the venue (last 60 minutes)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DensityTrendPoint"
+
+  /dashboard/risk-distribution:
+    get:
+      operationId: getRiskDistribution
+      tags: [dashboard]
+      summary: Count of zones by risk tier
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RiskBucket"
+
+  /zones:
+    get:
+      operationId: listZones
+      tags: [zones]
+      summary: List all monitored zones with current density and risk
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Zone"
+
+  /zones/{id}:
+    get:
+      operationId: getZone
+      tags: [zones]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Zone"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /zones/{id}/timeline:
+    get:
+      operationId: getZoneTimeline
+      tags: [zones]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DensityReading"
+
+  /zones/heatmap:
+    get:
+      operationId: getZoneHeatmap
+      tags: [zones]
+      summary: Spatial grid of density values for the venue map
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HeatmapCell"
+
+  /alerts:
+    get:
+      operationId: listAlerts
+      tags: [alerts]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Alert"
+
+  /alerts/active:
+    get:
+      operationId: listActiveAlerts
+      tags: [alerts]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Alert"
+
+  /alerts/{id}/acknowledge:
+    post:
+      operationId: acknowledgeAlert
+      tags: [alerts]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Alert"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /alerts/{id}/resolve:
+    post:
+      operationId: resolveAlert
+      tags: [alerts]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Alert"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /incidents:
+    get:
+      operationId: listIncidents
+      tags: [incidents]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Incident"
+    post:
+      operationId: createIncident
+      tags: [incidents]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateIncidentBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Incident"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /incidents/{id}:
+    patch:
+      operationId: updateIncident
+      tags: [incidents]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateIncidentBody"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Incident"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /cameras:
+    get:
+      operationId: listCameras
+      tags: [cameras]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Camera"
+
+  /predictions/risk:
+    get:
+      operationId: getRiskPredictions
+      tags: [predictions]
+      summary: AI-generated risk forecast per zone for the next 30 minutes
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RiskPrediction"
+
+  /predictions/forecast:
+    get:
+      operationId: getDensityForecast
+      tags: [predictions]
+      summary: Predicted vs actual density for the venue (next 60 min)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ForecastPoint"
+
+  /flows/recent:
+    get:
+      operationId: listFlows
+      tags: [flows]
+      summary: Recent crowd-flow vectors between adjacent zones
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FlowVector"
+
+  /evacuation/routes:
+    get:
+      operationId: listEvacuationRoutes
+      tags: [evacuation]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EvacuationRoute"
+
+  /responders:
+    get:
+      operationId: listResponders
+      tags: [responders]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Responder"
+
+  /events/recent:
+    get:
+      operationId: listRecentEvents
+      tags: [events]
+      summary: Unified activity feed (alerts, incidents, sensor events)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityEvent"
+
 components:
   schemas:
     HealthStatus:
@@ -31,6 +401,461 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+
+    DashboardSummary:
+      type: object
+      properties:
+        totalPeople:
+          type: integer
+        averageDensity:
+          type: number
+          description: people per square meter
+        peakDensity:
+          type: number
+        capacityUtilization:
+          type: number
+          description: percent of total venue capacity
+        activeAlertsCount:
+          type: integer
+        criticalZonesCount:
+          type: integer
+        openIncidentsCount:
+          type: integer
+        respondersAvailable:
+          type: integer
+        camerasOnline:
+          type: integer
+        camerasTotal:
+          type: integer
+        overallRiskScore:
+          type: number
+          description: 0–100 composite stampede risk score
+        riskTrendPct:
+          type: number
+          description: percent change vs previous hour
+        peoplePerMinuteFlow:
+          type: integer
+      required:
+        - totalPeople
+        - averageDensity
+        - peakDensity
+        - capacityUtilization
+        - activeAlertsCount
+        - criticalZonesCount
+        - openIncidentsCount
+        - respondersAvailable
+        - camerasOnline
+        - camerasTotal
+        - overallRiskScore
+        - riskTrendPct
+        - peoplePerMinuteFlow
+
+    DensityTrendPoint:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        averageDensity:
+          type: number
+        peakDensity:
+          type: number
+        totalPeople:
+          type: integer
+      required: [timestamp, averageDensity, peakDensity, totalPeople]
+
+    RiskBucket:
+      type: object
+      properties:
+        tier:
+          type: string
+          description: low | moderate | high | critical
+        zoneCount:
+          type: integer
+        peopleCount:
+          type: integer
+      required: [tier, zoneCount, peopleCount]
+
+    Zone:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        venueName:
+          type: string
+        capacity:
+          type: integer
+        areaSqm:
+          type: number
+        currentPeople:
+          type: integer
+        currentDensity:
+          type: number
+        avgVelocity:
+          type: number
+          description: meters per second
+        flowDirection:
+          type: string
+        riskTier:
+          type: string
+          description: low | moderate | high | critical
+        riskScore:
+          type: number
+          description: 0–100
+        gridX:
+          type: integer
+        gridY:
+          type: integer
+        status:
+          type: string
+        lastUpdated:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - venueName
+        - capacity
+        - areaSqm
+        - currentPeople
+        - currentDensity
+        - avgVelocity
+        - flowDirection
+        - riskTier
+        - riskScore
+        - gridX
+        - gridY
+        - status
+        - lastUpdated
+
+    DensityReading:
+      type: object
+      properties:
+        id:
+          type: integer
+        zoneId:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+        peopleCount:
+          type: integer
+        density:
+          type: number
+        avgVelocity:
+          type: number
+        flowDirection:
+          type: string
+        riskScore:
+          type: number
+      required:
+        - id
+        - zoneId
+        - timestamp
+        - peopleCount
+        - density
+        - avgVelocity
+        - flowDirection
+        - riskScore
+
+    HeatmapCell:
+      type: object
+      properties:
+        gridX:
+          type: integer
+        gridY:
+          type: integer
+        density:
+          type: number
+        peopleCount:
+          type: integer
+        zoneId:
+          type: integer
+        zoneName:
+          type: string
+        riskTier:
+          type: string
+      required: [gridX, gridY, density, peopleCount, zoneId, zoneName, riskTier]
+
+    Alert:
+      type: object
+      properties:
+        id:
+          type: integer
+        zoneId:
+          type: integer
+        zoneName:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        severity:
+          type: string
+          description: info | warning | critical
+        type:
+          type: string
+          description: overcrowding | counterflow | stampede_risk | sensor_offline | velocity_drop
+        title:
+          type: string
+        message:
+          type: string
+        status:
+          type: string
+          description: active | acknowledged | resolved
+        acknowledgedBy:
+          type: ["string", "null"]
+        resolvedAt:
+          type: ["string", "null"]
+          format: date-time
+      required:
+        - id
+        - zoneId
+        - zoneName
+        - timestamp
+        - severity
+        - type
+        - title
+        - message
+        - status
+        - acknowledgedBy
+        - resolvedAt
+
+    Incident:
+      type: object
+      properties:
+        id:
+          type: integer
+        zoneId:
+          type: integer
+        zoneName:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        type:
+          type: string
+        description:
+          type: string
+        severity:
+          type: string
+        status:
+          type: string
+        assignedTo:
+          type: ["string", "null"]
+        peopleAffected:
+          type: integer
+      required:
+        - id
+        - zoneId
+        - zoneName
+        - timestamp
+        - type
+        - description
+        - severity
+        - status
+        - assignedTo
+        - peopleAffected
+
+    CreateIncidentBody:
+      type: object
+      properties:
+        zoneId:
+          type: integer
+        type:
+          type: string
+        description:
+          type: string
+        severity:
+          type: string
+        peopleAffected:
+          type: integer
+      required: [zoneId, type, description, severity]
+
+    UpdateIncidentBody:
+      type: object
+      properties:
+        status:
+          type: string
+        assignedTo:
+          type: string
+        description:
+          type: string
+
+    Camera:
+      type: object
+      properties:
+        id:
+          type: integer
+        zoneId:
+          type: integer
+        zoneName:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          description: cctv | lidar | wifi | thermal
+        status:
+          type: string
+          description: online | offline | degraded
+        accuracy:
+          type: number
+          description: 0–100 confidence
+        lastPing:
+          type: string
+          format: date-time
+      required: [id, zoneId, zoneName, name, type, status, accuracy, lastPing]
+
+    RiskPrediction:
+      type: object
+      properties:
+        zoneId:
+          type: integer
+        zoneName:
+          type: string
+        currentRisk:
+          type: number
+        predictedRisk:
+          type: number
+        horizonMin:
+          type: integer
+        confidence:
+          type: number
+        recommendedAction:
+          type: string
+      required:
+        - zoneId
+        - zoneName
+        - currentRisk
+        - predictedRisk
+        - horizonMin
+        - confidence
+        - recommendedAction
+
+    ForecastPoint:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        actualDensity:
+          type: ["number", "null"]
+        predictedDensity:
+          type: number
+        upperBound:
+          type: number
+        lowerBound:
+          type: number
+      required: [timestamp, actualDensity, predictedDensity, upperBound, lowerBound]
+
+    FlowVector:
+      type: object
+      properties:
+        id:
+          type: integer
+        fromZoneId:
+          type: integer
+        fromZoneName:
+          type: string
+        toZoneId:
+          type: integer
+        toZoneName:
+          type: string
+        peoplePerMinute:
+          type: integer
+        direction:
+          type: string
+        congestionLevel:
+          type: string
+          description: clear | moderate | heavy | blocked
+      required:
+        - id
+        - fromZoneId
+        - fromZoneName
+        - toZoneId
+        - toZoneName
+        - peoplePerMinute
+        - direction
+        - congestionLevel
+
+    EvacuationRoute:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        fromZoneName:
+          type: string
+        toExitName:
+          type: string
+        capacityPerMin:
+          type: integer
+        status:
+          type: string
+          description: clear | congested | blocked
+        estimatedClearTime:
+          type: integer
+          description: minutes to evacuate at current load
+        currentLoad:
+          type: integer
+      required:
+        - id
+        - name
+        - fromZoneName
+        - toExitName
+        - capacityPerMin
+        - status
+        - estimatedClearTime
+        - currentLoad
+
+    Responder:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        role:
+          type: string
+          description: medic | security | supervisor | crowd_marshal
+        status:
+          type: string
+          description: available | dispatched | off_duty
+        assignedZoneName:
+          type: ["string", "null"]
+        lastSeen:
+          type: string
+          format: date-time
+      required: [id, name, role, status, assignedZoneName, lastSeen]
+
+    ActivityEvent:
+      type: object
+      properties:
+        id:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        kind:
+          type: string
+          description: alert | incident | sensor | dispatch | system
+        severity:
+          type: string
+        zoneName:
+          type: ["string", "null"]
+        title:
+          type: string
+        description:
+          type: string
+      required: [id, timestamp, kind, severity, zoneName, title, description]

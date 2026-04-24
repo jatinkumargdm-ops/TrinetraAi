@@ -1,0 +1,31 @@
+kind = "data-app"
+previewPath = "/"
+title = "Crowd Intelligence"
+version = "1.0.0"
+id = "artifacts/crowd-intel"
+router = "path"
+
+[[integratedSkills]]
+name = "data-visualization"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22337
+
+[services.development]
+run = "pnpm --filter @workspace/crowd-intel run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/crowd-intel", "run", "build" ]
+publicDir = "artifacts/crowd-intel/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22337"
+BASE_PATH = "/"
