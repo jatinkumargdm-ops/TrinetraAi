@@ -15,6 +15,7 @@ The user picks a source on the **Landing page** (webcam / video file / image), a
 - **Behaviour alerts** for fall and run events
 - **Heatmap** overlay (toggleable) — Float32 decay grid stamped on each detection
 - **Snapshot** button — composites video + heatmap + overlay + stats footer to a downloadable PNG
+- **Record incident** button — captures a 10-second WebM clip via `canvas.captureStream()` + `MediaRecorder`, with a live REC overlay, footer banner, and rolling stats baked into the video
 - **Audio alarm** beeps via Web Audio when the safety tier escalates
 - **History chart**, **alerts feed**, **capacity slider**, **Pause / Mute / Change source** top bar
 

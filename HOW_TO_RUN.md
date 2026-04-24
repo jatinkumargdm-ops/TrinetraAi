@@ -49,15 +49,66 @@ Hold **Ctrl** and click that link, or just open it in Chrome / Edge.
 
 ## 5. Use it
 
+On the **landing page**, pick one:
+
 - **Use webcam** → allow camera access when the browser asks.
-- **Upload a video** → pick an MP4 / WebM / MOV file from your PC.
+- **Upload a video** → pick an MP4 / WebM / MOV file.
 - **Upload a photo** → pick a JPG / PNG.
 
-Everything runs **inside your browser** — no internet upload, no server needed.
+The **dashboard** then shows live people count, safety zone, foot traffic, crowd flow, demographics, mask check, and behaviour alerts.
+
+In the top bar you can:
+
+| Button         | What it does                                            |
+| -------------- | ------------------------------------------------------- |
+| **Heatmap**    | Toggle the crowd-density heat overlay                   |
+| **Snapshot**   | Save a PNG of the current scene with stats footer        |
+| **Record**     | Save a 10-second WebM clip of the incident with overlay |
+| **Alarms**     | Mute / unmute the audio safety alarm                    |
+| **Pause**      | Freeze the live analysis                                |
+| **Change source** | Go back to the landing page to pick a different feed |
+
+Everything runs **inside your browser** — nothing is uploaded.
 
 ## 6. Stop the app
 
 In the terminal, press **Ctrl + C**, then **Y**.
+
+---
+
+## Project structure
+
+```
+trinetra-ai/
+├─ HOW_TO_RUN.md              ← this file
+├─ replit.md                  ← project notes
+├─ package.json               ← root pnpm config
+├─ pnpm-workspace.yaml
+├─ pnpm-lock.yaml
+├─ tsconfig.base.json
+└─ artifacts/
+   └─ crowd-intel/            ← the TRINETRA AI app (the one you run)
+      ├─ index.html
+      ├─ package.json
+      ├─ vite.config.ts
+      ├─ tsconfig.json
+      ├─ public/
+      │  ├─ favicon.svg
+      │  └─ face-models/      ← face / age / gender / mask weights
+      └─ src/
+         ├─ main.tsx          ← React entry
+         ├─ App.tsx           ← Landing ↔ Dashboard router
+         ├─ index.css         ← light blue theme + animations
+         ├─ pages/
+         │  ├─ Landing.tsx    ← hero + source picker
+         │  └─ Dashboard.tsx  ← main dashboard (count, safety, flow, etc.)
+         └─ lib/
+            ├─ detection.ts   ← person + face detection wrappers
+            ├─ tracker.ts     ← centroid tracker, flow, fall/run, in/out
+            └─ audio.ts       ← Web Audio safety alarm
+```
+
+The `artifacts/api-server/` folder is leftover from an earlier plan and is not used — you can ignore it.
 
 ---
 
@@ -67,5 +118,6 @@ In the terminal, press **Ctrl + C**, then **Y**.
 - **Audio alarm silent?** Click anywhere on the page once — browsers block sound until you interact.
 - **Slow on first load?** First run downloads the AI brain (~25 MB). Later runs are instant.
 - **Best browser:** Chrome or Microsoft Edge.
+- **Recorded clip won't open?** It's a `.webm` file — VLC, Chrome, and Edge all play it natively.
 
 That's it. Enjoy demoing TRINETRA AI 🛡️

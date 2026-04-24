@@ -124,6 +124,12 @@ export default function Dashboard({
   const [enter, setEnter] = useState(false);
   const [showHeat, setShowHeat] = useState(true);
   const [traffic, setTraffic] = useState({ entered: 0, left: 0 });
+  const [recording, setRecording] = useState(false);
+  const [recordCountdown, setRecordCountdown] = useState(0);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const recordRafRef = useRef<number | null>(null);
+  const recordTimerRef = useRef<number | null>(null);
+  const recordCountdownTimerRef = useRef<number | null>(null);
 
   const tier = tierFor(count, capacity);
   const tierColor = TIER_COLOR[tier];
@@ -442,6 +448,184 @@ export default function Dashboard({
     }, "image/png");
   }
 
+  function startRecording() {
+    if (recording) return;
+    const v = videoRef.current;
+    const img = imageRef.current;
+    const overlay = canvasRef.current;
+    const heat = heatCanvasRef.current;
+    const isImg = source.kind === "image";
+    const srcEl = isImg ? img : v;
+    if (!srcEl || !overlay) {
+      pushAlert("Nothing to record yet", "warn");
+      return;
+    }
+    const w = isImg ? img!.naturalWidth : v!.videoWidth;
+    const h = isImg ? img!.naturalHeight : v!.videoHeight;
+    if (!w || !h) {
+      pushAlert("Source not ready", "warn");
+      return;
+    }
+
+    const footer = 110;
+    const out = document.createElement("canvas");
+    out.width = w;
+    out.height = h + footer;
+    const ctx = out.getContext("2d");
+    if (!ctx) return;
+
+    const startedAt = Date.now();
+
+    const drawFrame = () => {
+      ctx.fillStyle = "#0f1f3d";
+      ctx.fillRect(0, 0, w, h + footer);
+      try {
+        ctx.drawImage(srcEl as CanvasImageSource, 0, 0, w, h);
+      } catch {
+        // video not yet decoded
+      }
+      if (showHeat && heat) {
+        ctx.globalAlpha = 0.55;
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(heat, 0, 0, w, h);
+        ctx.globalAlpha = 1;
+      }
+      ctx.drawImage(overlay, 0, 0, w, h);
+
+      // Footer banner
+      const grad = ctx.createLinearGradient(0, h, w, h + footer);
+      grad.addColorStop(0, "#0f1f3d");
+      grad.addColorStop(1, "#1d6cf3");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, h, w, footer);
+
+      // REC dot
+      ctx.beginPath();
+      ctx.fillStyle = "#ef4444";
+      ctx.arc(w - 30, h + 26, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#fff";
+      ctx.font = "700 14px Inter, sans-serif";
+      ctx.fillText("REC", w - 70, h + 31);
+
+      ctx.fillStyle = "#fff";
+      ctx.font = "700 26px Inter, sans-serif";
+      ctx.fillText("TRINETRA AI · Incident clip", 24, h + 36);
+      ctx.font = "500 17px Inter, sans-serif";
+      const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
+      ctx.fillText(
+        `People ${count}   ·   Safety ${TIER_LABEL[tier]}   ·   Capacity ${capacity}   ·   Entered ${traffic.entered}   ·   Left ${traffic.left}   ·   t=${elapsed}s`,
+        24,
+        h + 66,
+      );
+      ctx.font = "500 14px Inter, sans-serif";
+      ctx.fillStyle = "rgba(255,255,255,0.85)";
+      const demoLine =
+        demo.faces > 0
+          ? `Avg age ${Math.round(demo.avgAge)}  ·  Men ${Math.round(demo.male)}%  ·  Women ${Math.round(demo.female)}%  ·  Masks ${Math.round(demo.masked)}%`
+          : "Faces analysing…";
+      ctx.fillText(demoLine, 24, h + 90);
+      const stamp = new Date().toLocaleString();
+      ctx.fillText(stamp, w - 24 - ctx.measureText(stamp).width, h + 90);
+
+      recordRafRef.current = requestAnimationFrame(drawFrame);
+    };
+    drawFrame();
+
+    let stream: MediaStream;
+    try {
+      stream = (out as HTMLCanvasElement).captureStream(30);
+    } catch {
+      pushAlert("Recording not supported on this browser", "warn");
+      return;
+    }
+    let mime = "video/webm;codecs=vp9";
+    if (
+      typeof MediaRecorder === "undefined" ||
+      !MediaRecorder.isTypeSupported(mime)
+    ) {
+      mime = "video/webm;codecs=vp8";
+    }
+    if (
+      typeof MediaRecorder === "undefined" ||
+      !MediaRecorder.isTypeSupported(mime)
+    ) {
+      mime = "video/webm";
+    }
+    let recorder: MediaRecorder;
+    try {
+      recorder = new MediaRecorder(stream, { mimeType: mime });
+    } catch {
+      pushAlert("Recording not supported on this browser", "warn");
+      return;
+    }
+    recorderRef.current = recorder;
+    const chunks: Blob[] = [];
+    recorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) chunks.push(e.data);
+    };
+    recorder.onstop = () => {
+      const blob = new Blob(chunks, { type: mime });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `trinetra-incident-${Date.now()}.webm`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      pushAlert("Incident clip saved (10s)", "info");
+      if (recordRafRef.current) {
+        cancelAnimationFrame(recordRafRef.current);
+        recordRafRef.current = null;
+      }
+      stream.getTracks().forEach((t) => t.stop());
+    };
+    recorder.start(200);
+    setRecording(true);
+    setRecordCountdown(10);
+
+    if (recordCountdownTimerRef.current)
+      window.clearInterval(recordCountdownTimerRef.current);
+    recordCountdownTimerRef.current = window.setInterval(() => {
+      setRecordCountdown((c) => Math.max(0, c - 1));
+    }, 1000);
+
+    recordTimerRef.current = window.setTimeout(() => {
+      if (recorderRef.current && recorderRef.current.state !== "inactive") {
+        recorderRef.current.stop();
+      }
+      setRecording(false);
+      setRecordCountdown(0);
+      if (recordCountdownTimerRef.current) {
+        window.clearInterval(recordCountdownTimerRef.current);
+        recordCountdownTimerRef.current = null;
+      }
+      recorderRef.current = null;
+      recordTimerRef.current = null;
+    }, 10_000);
+
+    pushAlert("Recording 10-second incident clip", "info");
+  }
+
+  // Cleanup recording on unmount
+  useEffect(() => {
+    return () => {
+      if (recordTimerRef.current) window.clearTimeout(recordTimerRef.current);
+      if (recordCountdownTimerRef.current)
+        window.clearInterval(recordCountdownTimerRef.current);
+      if (recordRafRef.current) cancelAnimationFrame(recordRafRef.current);
+      if (recorderRef.current && recorderRef.current.state !== "inactive") {
+        try {
+          recorderRef.current.stop();
+        } catch {
+          /* noop */
+        }
+      }
+    };
+  }, []);
+
   function checkBehaviour(tracks: Track[]) {
     const now = Date.now();
     for (const t of tracks) {
@@ -629,7 +813,11 @@ export default function Dashboard({
         onToggleMute={toggleMute}
         onToggleHeat={() => setShowHeat((s) => !s)}
         onSnapshot={handleSnapshot}
+        onRecord={startRecording}
         canSnapshot={phase === "ready"}
+        canRecord={phase === "ready" && !recording}
+        recording={recording}
+        recordCountdown={recordCountdown}
         showHeat={showHeat}
         paused={paused}
         muted={muted}
@@ -705,6 +893,22 @@ export default function Dashboard({
                 ref={canvasRef}
                 className="absolute inset-0 w-full h-full object-contain pointer-events-none"
               />
+
+              {recording && (
+                <div
+                  className="absolute top-3 left-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-white text-[12px] font-bold tracking-wide shadow-lg"
+                  style={{
+                    background: "rgba(239,68,68,0.92)",
+                    backdropFilter: "blur(4px)",
+                  }}
+                >
+                  <span
+                    className="w-2 h-2 rounded-full bg-white"
+                    style={{ animation: "pulse-dot 1.1s infinite" }}
+                  />
+                  REC · {recordCountdown}s
+                </div>
+              )}
 
               {(phase === "loading" || phase === "starting") && (
                 <BootOverlay msg={loadingMsg} />
@@ -802,7 +1006,11 @@ function TopBar({
   onToggleMute,
   onToggleHeat,
   onSnapshot,
+  onRecord,
   canSnapshot,
+  canRecord,
+  recording,
+  recordCountdown,
   showHeat,
   paused,
   muted,
@@ -815,7 +1023,11 @@ function TopBar({
   onToggleMute: () => void;
   onToggleHeat: () => void;
   onSnapshot: () => void;
+  onRecord: () => void;
   canSnapshot: boolean;
+  canRecord: boolean;
+  recording: boolean;
+  recordCountdown: number;
   showHeat: boolean;
   paused: boolean;
   muted: boolean;
@@ -864,6 +1076,23 @@ function TopBar({
           >
             <DownloadIcon />
             <span className="hidden md:inline">Snapshot</span>
+          </button>
+
+          <button
+            className="btn btn-ghost"
+            onClick={onRecord}
+            disabled={!canRecord}
+            title={recording ? "Recording…" : "Record a 10-second incident clip"}
+            style={
+              recording
+                ? { borderColor: "#ef4444", color: "#ef4444" }
+                : undefined
+            }
+          >
+            <RecordIcon recording={recording} />
+            <span className="hidden md:inline">
+              {recording ? `Recording ${recordCountdown}s` : "Record"}
+            </span>
           </button>
 
           <button
@@ -1418,6 +1647,21 @@ function HeatIcon() {
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 2s4 5 4 9a4 4 0 1 1-8 0c0-1.5.5-2.5 1-3" />
       <path d="M9 14a3 3 0 0 0 6 0" />
+    </svg>
+  );
+}
+function RecordIcon({ recording }: { recording: boolean }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle
+        cx="12"
+        cy="12"
+        r="6"
+        fill={recording ? "#ef4444" : "currentColor"}
+        stroke="none"
+        style={recording ? { animation: "pulse-dot 1.1s infinite" } : undefined}
+      />
+      <circle cx="12" cy="12" r="9" />
     </svg>
   );
 }
