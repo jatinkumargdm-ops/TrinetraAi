@@ -27,6 +27,8 @@ export class CentroidTracker {
   tracks: Track[] = [];
   maxMissed = 6;
   matchRadius = 120;
+  enteredTotal = 0;
+  leftTotal = 0;
 
   update(bboxes: BBox[]): Track[] {
     const used = new Set<number>();
@@ -85,14 +87,19 @@ export class CentroidTracker {
         ageFrames: 1,
         missedFrames: 0,
       });
+      this.enteredTotal++;
     }
     // Drop old
+    const before = this.tracks.length;
     this.tracks = this.tracks.filter((t) => t.missedFrames <= this.maxMissed);
+    this.leftTotal += before - this.tracks.length;
     return this.tracks.filter((t) => t.missedFrames === 0);
   }
 
   reset() {
     this.tracks = [];
+    this.enteredTotal = 0;
+    this.leftTotal = 0;
   }
 }
 

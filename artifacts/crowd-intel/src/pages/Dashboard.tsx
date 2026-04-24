@@ -24,6 +24,33 @@ const TIER_LABEL: Record<Tier, string> = {
   STAMPEDE: "Stampede risk",
 };
 
+function heatColor(v: number): [number, number, number, number] {
+  // 0..1 → blue → cyan → yellow → red, with alpha that grows
+  const t = Math.max(0, Math.min(1, v));
+  let r: number, g: number, b: number;
+  if (t < 0.25) {
+    const u = t / 0.25;
+    r = 30; g = Math.round(120 + 80 * u); b = 240;
+  } else if (t < 0.5) {
+    const u = (t - 0.25) / 0.25;
+    r = Math.round(30 + (255 - 30) * u);
+    g = Math.round(200 + 30 * u);
+    b = Math.round(240 - 240 * u);
+  } else if (t < 0.75) {
+    const u = (t - 0.5) / 0.25;
+    r = 255;
+    g = Math.round(230 - 130 * u);
+    b = 0;
+  } else {
+    const u = (t - 0.75) / 0.25;
+    r = 255;
+    g = Math.round(100 - 100 * u);
+    b = 0;
+  }
+  const a = Math.round(60 + 170 * t);
+  return [r, g, b, a];
+}
+
 function tierFor(count: number, capacity: number): Tier {
   const r = count / Math.max(1, capacity);
   if (r >= 1.25) return "STAMPEDE";
@@ -56,6 +83,9 @@ export default function Dashboard({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const heatCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const heatGridRef = useRef<Float32Array | null>(null);
+  const heatGridSizeRef = useRef<{ w: number; h: number }>({ w: 80, h: 45 });
   const containerRef = useRef<HTMLDivElement | null>(null);
   const trackerRef = useRef(new CentroidTracker());
   const rafRef = useRef<number | null>(null);
@@ -92,6 +122,8 @@ export default function Dashboard({
     faces: 0,
   });
   const [enter, setEnter] = useState(false);
+  const [showHeat, setShowHeat] = useState(true);
+  const [traffic, setTraffic] = useState({ entered: 0, left: 0 });
 
   const tier = tierFor(count, capacity);
   const tierColor = TIER_COLOR[tier];
@@ -247,11 +279,19 @@ export default function Dashboard({
       const tracks = trackerRef.current.update(det.personBoxes);
       const fl = flowDirection(tracks);
       setFlow({ label: fl.label, angleDeg: fl.angleDeg, magnitude: fl.magnitude });
+      setTraffic({
+        entered: trackerRef.current.enteredTotal,
+        left: trackerRef.current.leftTotal,
+      });
 
       // Behavior detection
       checkBehaviour(tracks);
 
-      // Render
+      // Update + draw heatmap
+      updateHeatmap(v.videoWidth, v.videoHeight, det.personBoxes);
+      drawHeatmap();
+
+      // Render overlay
       drawOverlay(v.videoWidth, v.videoHeight, det.personBoxes, facesRef.current, tracks);
 
       setCount(det.personBoxes.length);
@@ -268,6 +308,139 @@ export default function Dashboard({
     rafRef.current = requestAnimationFrame(loop);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function ensureHeatGrid() {
+    const { w, h } = heatGridSizeRef.current;
+    if (!heatGridRef.current || heatGridRef.current.length !== w * h) {
+      heatGridRef.current = new Float32Array(w * h);
+    }
+    return heatGridRef.current;
+  }
+
+  function updateHeatmap(
+    vw: number,
+    vh: number,
+    boxes: [number, number, number, number][],
+  ) {
+    const grid = ensureHeatGrid();
+    const { w: gw, h: gh } = heatGridSizeRef.current;
+    // Decay
+    for (let i = 0; i < grid.length; i++) grid[i] *= 0.965;
+    // Stamp around centroids
+    for (const b of boxes) {
+      const [x, y, w, h] = b;
+      const cx = ((x + w / 2) / vw) * gw;
+      const cy = ((y + h / 2) / vh) * gh;
+      const radius = 3;
+      for (let yy = -radius; yy <= radius; yy++) {
+        for (let xx = -radius; xx <= radius; xx++) {
+          const gx = Math.round(cx + xx);
+          const gy = Math.round(cy + yy);
+          if (gx < 0 || gy < 0 || gx >= gw || gy >= gh) continue;
+          const d2 = xx * xx + yy * yy;
+          const v = Math.exp(-d2 / 4) * 0.6;
+          const idx = gy * gw + gx;
+          grid[idx] = Math.min(1, grid[idx] + v);
+        }
+      }
+    }
+  }
+
+  function drawHeatmap() {
+    const c = heatCanvasRef.current;
+    if (!c) return;
+    const { w: gw, h: gh } = heatGridSizeRef.current;
+    const grid = heatGridRef.current;
+    if (!grid) return;
+    if (c.width !== gw || c.height !== gh) {
+      c.width = gw;
+      c.height = gh;
+    }
+    const ctx = c.getContext("2d");
+    if (!ctx) return;
+    const img = ctx.createImageData(gw, gh);
+    for (let i = 0; i < grid.length; i++) {
+      const v = grid[i];
+      const o = i * 4;
+      if (v < 0.05) {
+        img.data[o + 3] = 0;
+        continue;
+      }
+      const [r, g, b, a] = heatColor(v);
+      img.data[o] = r;
+      img.data[o + 1] = g;
+      img.data[o + 2] = b;
+      img.data[o + 3] = a;
+    }
+    ctx.putImageData(img, 0, 0);
+  }
+
+  async function handleSnapshot() {
+    const v = videoRef.current;
+    const img = imageRef.current;
+    const overlay = canvasRef.current;
+    const heat = heatCanvasRef.current;
+    const isImg = source.kind === "image";
+    const srcEl = isImg ? img : v;
+    if (!srcEl || !overlay) return;
+    const w = isImg ? img!.naturalWidth : v!.videoWidth;
+    const h = isImg ? img!.naturalHeight : v!.videoHeight;
+    if (!w || !h) return;
+    const footer = 110;
+    const out = document.createElement("canvas");
+    out.width = w;
+    out.height = h + footer;
+    const ctx = out.getContext("2d");
+    if (!ctx) return;
+    ctx.fillStyle = "#0f1f3d";
+    ctx.fillRect(0, 0, w, h + footer);
+    ctx.drawImage(srcEl as CanvasImageSource, 0, 0, w, h);
+    if (showHeat && heat) {
+      ctx.globalAlpha = 0.55;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(heat, 0, 0, w, h);
+      ctx.globalAlpha = 1;
+    }
+    ctx.drawImage(overlay, 0, 0, w, h);
+
+    // Footer panel
+    const grad = ctx.createLinearGradient(0, h, w, h + footer);
+    grad.addColorStop(0, "#0f1f3d");
+    grad.addColorStop(1, "#1d6cf3");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, h, w, footer);
+    ctx.fillStyle = "#fff";
+    ctx.font = "700 28px Inter, sans-serif";
+    ctx.fillText("TRINETRA AI · Crowd snapshot", 24, h + 38);
+    ctx.font = "500 18px Inter, sans-serif";
+    const stampTime = new Date().toLocaleString();
+    const stats =
+      `People: ${count}   ·   Safety: ${TIER_LABEL[tier]}   ·   Capacity: ${capacity}   ·   ` +
+      `Entered: ${traffic.entered}   ·   Left: ${traffic.left}`;
+    const demoLine =
+      demo.faces > 0
+        ? `Avg age ${Math.round(demo.avgAge)}  ·  Men ${Math.round(demo.male)}%  ·  Women ${Math.round(demo.female)}%  ·  Masks ${Math.round(demo.masked)}%`
+        : `Faces not yet detected`;
+    ctx.fillText(stats, 24, h + 66);
+    ctx.font = "500 14px Inter, sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.fillText(demoLine, 24, h + 90);
+    ctx.fillText(stampTime, w - 24 - ctx.measureText(stampTime).width, h + 90);
+
+    out.toBlob((blob) => {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `trinetra-snapshot-${Date.now()}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      pushAlert("Snapshot saved", "info");
+    }, "image/png");
+  }
 
   function checkBehaviour(tracks: Track[]) {
     const now = Date.now();
@@ -454,6 +627,10 @@ export default function Dashboard({
         onChangeSource={handleChangeSource}
         onTogglePause={togglePause}
         onToggleMute={toggleMute}
+        onToggleHeat={() => setShowHeat((s) => !s)}
+        onSnapshot={handleSnapshot}
+        canSnapshot={phase === "ready"}
+        showHeat={showHeat}
         paused={paused}
         muted={muted}
         canPause={!isImage && phase === "ready"}
@@ -514,6 +691,15 @@ export default function Dashboard({
                 alt=""
                 className="absolute inset-0 w-full h-full object-contain"
                 style={{ display: source.kind === "image" ? "block" : "none" }}
+              />
+              <canvas
+                ref={heatCanvasRef}
+                className="absolute inset-0 w-full h-full object-contain pointer-events-none transition-opacity duration-300"
+                style={{
+                  opacity: showHeat ? 0.55 : 0,
+                  imageRendering: "auto",
+                  mixBlendMode: "screen",
+                }}
               />
               <canvas
                 ref={canvasRef}
@@ -590,6 +776,7 @@ export default function Dashboard({
             capacity={capacity}
             peak={peak}
           />
+          <TrafficCard entered={traffic.entered} left={traffic.left} />
           <SafetyMeter tier={tier} count={count} capacity={capacity} />
           <FlowCard flow={flow} />
           <DemographicsCard demo={demo} />
@@ -613,6 +800,10 @@ function TopBar({
   onChangeSource,
   onTogglePause,
   onToggleMute,
+  onToggleHeat,
+  onSnapshot,
+  canSnapshot,
+  showHeat,
   paused,
   muted,
   canPause,
@@ -622,6 +813,10 @@ function TopBar({
   onChangeSource: () => void;
   onTogglePause: () => void;
   onToggleMute: () => void;
+  onToggleHeat: () => void;
+  onSnapshot: () => void;
+  canSnapshot: boolean;
+  showHeat: boolean;
   paused: boolean;
   muted: boolean;
   canPause: boolean;
@@ -646,6 +841,30 @@ function TopBar({
               {statusLabel}
             </span>
           </span>
+
+          <button
+            className="btn btn-ghost"
+            onClick={onToggleHeat}
+            title={showHeat ? "Hide heatmap" : "Show heatmap"}
+            style={
+              showHeat
+                ? { borderColor: "#1d6cf3", color: "#1d6cf3" }
+                : undefined
+            }
+          >
+            <HeatIcon />
+            <span className="hidden md:inline">Heatmap</span>
+          </button>
+
+          <button
+            className="btn btn-ghost"
+            onClick={onSnapshot}
+            disabled={!canSnapshot}
+            title="Save snapshot"
+          >
+            <DownloadIcon />
+            <span className="hidden md:inline">Snapshot</span>
+          </button>
 
           <button
             className="btn btn-ghost"
@@ -740,6 +959,51 @@ function PrimaryCount({
         <span className="font-semibold text-[#0f1f3d]">{peak}</span>
       </div>
     </div>
+  );
+}
+
+function TrafficCard({ entered, left }: { entered: number; left: number }) {
+  return (
+    <div className="card p-5">
+      <div className="text-[11px] tracking-[0.18em] uppercase text-[#6b7d99]">
+        Foot traffic
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-3">
+        <div className="rounded-lg bg-[#f0f8ff] border border-[#dbeafe] p-3">
+          <div className="flex items-center gap-1.5 text-[#1d6cf3] text-[11px] font-semibold uppercase tracking-wide">
+            <ArrowInIcon /> Entered
+          </div>
+          <div className="font-display font-bold text-[26px] text-[#0f1f3d] mt-1 leading-none">
+            {entered}
+          </div>
+        </div>
+        <div className="rounded-lg bg-[#f8fafc] border border-[#e6edf5] p-3">
+          <div className="flex items-center gap-1.5 text-[#6b7d99] text-[11px] font-semibold uppercase tracking-wide">
+            <ArrowOutIcon /> Left
+          </div>
+          <div className="font-display font-bold text-[26px] text-[#0f1f3d] mt-1 leading-none">
+            {left}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ArrowInIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 12h14" />
+      <path d="M13 6l6 6-6 6" />
+    </svg>
+  );
+}
+function ArrowOutIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M19 12H5" />
+      <path d="M11 6l-6 6 6 6" />
+    </svg>
   );
 }
 
@@ -1146,6 +1410,23 @@ function BellIcon() {
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M6 8a6 6 0 1 1 12 0c0 5 3 6 3 6H3s3-1 3-6" />
       <path d="M10 21a2 2 0 0 0 4 0" />
+    </svg>
+  );
+}
+function HeatIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2s4 5 4 9a4 4 0 1 1-8 0c0-1.5.5-2.5 1-3" />
+      <path d="M9 14a3 3 0 0 0 6 0" />
+    </svg>
+  );
+}
+function DownloadIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3v12" />
+      <path d="M7 10l5 5 5-5" />
+      <path d="M5 21h14" />
     </svg>
   );
 }
