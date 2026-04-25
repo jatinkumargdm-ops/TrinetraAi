@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { ThemeToggle } from "../components/ThemeToggle";
 
 export type SourceConfig =
   | { kind: "webcam" }
@@ -301,6 +302,7 @@ function Header() {
     <header className="border-b border-[#b59868] bg-[#fbf3dd]/70 backdrop-blur">
       <div className="max-w-[1200px] mx-auto px-6 h-16 flex items-center justify-between">
         <Brand />
+        <ThemeToggle />
       </div>
     </header>
   );

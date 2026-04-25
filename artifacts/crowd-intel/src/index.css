@@ -186,3 +186,91 @@ button { cursor: pointer; font-family: inherit; }
   text-transform: uppercase;
   font-family: 'Cinzel', serif;
 }
+
+/* ───────────────────────────────────────────────────────────────────
+   NOX — Dark "midnight in the common room" theme
+   Triggered by [data-theme="dark"] on <html>
+   ─────────────────────────────────────────────────────────────────── */
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+[data-theme="dark"] html,
+[data-theme="dark"] body,
+[data-theme="dark"] #root {
+  background: #160e07 !important;
+  color: #f4e4bc !important;
+}
+[data-theme="dark"] body {
+  background:
+    radial-gradient(900px 500px at 8% -8%, rgba(163, 42, 42, 0.20), transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, rgba(212, 168, 67, 0.10), transparent 60%),
+    radial-gradient(circle at 50% 100%, rgba(0, 0, 0, 0.55), transparent 60%),
+    repeating-linear-gradient(45deg, rgba(212, 168, 67, 0.025) 0 2px, transparent 2px 5px),
+    repeating-linear-gradient(-45deg, rgba(116, 80, 30, 0.04) 0 2px, transparent 2px 6px),
+    linear-gradient(180deg, #1a120a 0%, #0d0805 100%) !important;
+  background-attachment: fixed !important;
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb { background: #5a4226; }
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: #8a6f44; }
+
+/* Card → dark wood / aged parchment */
+[data-theme="dark"] .card {
+  background:
+    radial-gradient(circle at 0 0, rgba(212, 168, 67, 0.10), transparent 30%),
+    radial-gradient(circle at 100% 100%, rgba(212, 168, 67, 0.08), transparent 30%),
+    linear-gradient(180deg, #2a1c10 0%, #1f1409 100%) !important;
+  border-color: #5a4226 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 6px 22px rgba(0, 0, 0, 0.55) !important;
+}
+[data-theme="dark"] .card::before {
+  border-color: rgba(212, 168, 67, 0.20) !important;
+}
+
+/* Buttons */
+[data-theme="dark"] .btn-ghost {
+  background: #2a1c10 !important;
+  color: #f4e4bc !important;
+  border-color: #5a4226 !important;
+}
+[data-theme="dark"] .btn-ghost:hover {
+  border-color: #d4a843 !important;
+  color: #d4a843 !important;
+}
+[data-theme="dark"] .btn-primary {
+  background: linear-gradient(135deg, #a32a2a, #d4a843) !important;
+  color: #160e07 !important;
+  box-shadow: 0 6px 16px rgba(163, 42, 42, 0.45) !important;
+}
+[data-theme="dark"] .btn-primary:hover {
+  box-shadow: 0 10px 24px rgba(212, 168, 67, 0.45) !important;
+}
+
+/* Lumos glow — keep, slightly stronger gold against dark */
+[data-theme="dark"] .lumos {
+  border: 1px solid rgba(212, 168, 67, 0.55) !important;
+}
+
+/* Tailwind arbitrary-value class overrides (parchment → midnight wood) */
+[data-theme="dark"] .bg-\[\#f4e4bc\] { background-color: #2a1c10 !important; }
+[data-theme="dark"] .bg-\[\#fbf3dd\] { background-color: #2a1c10 !important; }
+[data-theme="dark"] .bg-\[\#fbf3dd\]\/70 { background-color: rgba(26, 18, 10, 0.85) !important; }
+[data-theme="dark"] .bg-\[\#fbf3dd\]\/80 { background-color: rgba(26, 18, 10, 0.85) !important; }
+[data-theme="dark"] .bg-\[\#efd6c1\] { background-color: #5a0a0a !important; }
+[data-theme="dark"] .bg-\[\#ecd9a8\] { background-color: #1a120a !important; }
+[data-theme="dark"] .bg-\[\#f3e3b8\] { background-color: #1f1409 !important; }
+[data-theme="dark"] .bg-white\/80 { background-color: rgba(26, 18, 10, 0.85) !important; }
+[data-theme="dark"] .bg-white\/70 { background-color: rgba(26, 18, 10, 0.75) !important; }
+[data-theme="dark"] .bg-white { background-color: #2a1c10 !important; }
+
+[data-theme="dark"] .text-\[\#2b1d0e\] { color: #f4e4bc !important; }
+[data-theme="dark"] .text-\[\#5a4226\] { color: #d6b974 !important; }
+[data-theme="dark"] .text-\[\#8a6f44\] { color: #c5a973 !important; }
+[data-theme="dark"] .text-\[\#740001\] { color: #d4a843 !important; }
+
+[data-theme="dark"] .border-\[\#d6c08a\] { border-color: #5a4226 !important; }
+[data-theme="dark"] .border-\[\#b59868\] { border-color: #5a4226 !important; }
+[data-theme="dark"] .border-\[\#740001\] { border-color: #d4a843 !important; }
+
+/* History chart strokes/fills referenced by Tailwind hex are flipped above.
+   Inline-style hex values inside Dashboard.tsx canvas drawings stay as-is —
+   they paint into <canvas>, not the DOM tree, and reflect the snapshot brand. */

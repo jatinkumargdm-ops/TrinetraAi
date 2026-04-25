@@ -7,6 +7,7 @@ import {
 import { CentroidTracker, flowDirection, type Track } from "../lib/tracker";
 import { beepCritical, beepWarn, unlockAudio } from "../lib/audio";
 import { Brand, type SourceConfig } from "./Landing";
+import { ThemeToggle } from "../components/ThemeToggle";
 
 type Tier = "SAFE" | "MODERATE" | "HIGH" | "STAMPEDE";
 
@@ -1077,6 +1078,7 @@ function TopBar({
       <div className="max-w-[1400px] mx-auto px-6 h-16 flex items-center justify-between gap-3">
         <Brand />
         <div className="flex items-center gap-2">
+          <ThemeToggle compact />
           <span className="hidden sm:inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#f4e4bc] border border-[#d6c08a]">
             <span
               className="w-2 h-2 rounded-full"
