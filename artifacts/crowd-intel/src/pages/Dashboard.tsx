@@ -79,9 +79,13 @@ const RUN_SPEED = 14;
 export default function Dashboard({
   source,
   onChangeSource,
+  user,
+  onSignOut,
 }: {
   source: SourceConfig;
   onChangeSource: () => void;
+  user?: { name: string; email: string };
+  onSignOut?: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
@@ -909,6 +913,8 @@ export default function Dashboard({
       }}
     >
       <TopBar
+        user={user}
+        onSignOut={onSignOut}
         onChangeSource={handleChangeSource}
         onTogglePause={togglePause}
         onToggleMute={toggleMute}
@@ -1128,6 +1134,8 @@ export default function Dashboard({
 /* ----------------- subcomponents ----------------- */
 
 function TopBar({
+  user,
+  onSignOut,
   onChangeSource,
   onTogglePause,
   onToggleMute,
@@ -1145,6 +1153,8 @@ function TopBar({
   statusLabel,
   statusColor,
 }: {
+  user?: { name: string; email: string };
+  onSignOut?: () => void;
   onChangeSource: () => void;
   onTogglePause: () => void;
   onToggleMute: () => void;
@@ -1167,6 +1177,25 @@ function TopBar({
       <div className="max-w-[1400px] mx-auto px-6 h-16 flex items-center justify-between gap-3">
         <Brand />
         <div className="flex items-center gap-2">
+          {user && (
+            <span
+              className="hidden lg:inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#f4e4bc] border border-[#d6c08a] text-[12px] text-[#5a4226]"
+              title={user.email}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-[#10b981]" />
+              <span className="font-semibold text-[#2b1d0e]">{user.name}</span>
+            </span>
+          )}
+          {onSignOut && (
+            <button
+              className="btn btn-ghost"
+              onClick={onSignOut}
+              title="Sign out"
+            >
+              <span className="hidden md:inline">Sign out</span>
+              <span className="md:hidden">Out</span>
+            </button>
+          )}
           <ThemeToggle compact />
           <span className="hidden sm:inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#f4e4bc] border border-[#d6c08a]">
             <span

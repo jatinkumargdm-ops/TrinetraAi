@@ -54,6 +54,13 @@ export default defineConfig({
     fs: {
       strict: true,
     },
+    proxy: {
+      "/api": {
+        target: `http://127.0.0.1:${process.env.AUTH_PORT ?? "3001"}`,
+        changeOrigin: false,
+        secure: false,
+      },
+    },
   },
   preview: {
     port,

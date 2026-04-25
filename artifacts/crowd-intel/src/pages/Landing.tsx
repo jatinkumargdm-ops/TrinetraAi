@@ -58,8 +58,12 @@ const CARDS: {
 
 export default function Landing({
   onStart,
+  user,
+  onSignOut,
 }: {
   onStart: (cfg: SourceConfig) => void;
+  user?: { name: string; email: string };
+  onSignOut?: () => void;
 }) {
   const videoFileRef = useRef<HTMLInputElement>(null);
   const imageFileRef = useRef<HTMLInputElement>(null);
@@ -114,7 +118,7 @@ export default function Landing({
         }
       `}</style>
 
-      <Header />
+      <Header user={user} onSignOut={onSignOut} />
 
       <main className="flex-1 max-w-[1200px] w-full mx-auto px-6 py-10 lg:py-14 grid grid-cols-1 lg:grid-cols-[1.05fr_1fr] gap-12 items-center">
         <section style={{ animation: "landingIn 0.6s ease-out both" }}>
@@ -308,12 +312,37 @@ function SpellChip({ label }: { label: string }) {
   );
 }
 
-function Header() {
+function Header({
+  user,
+  onSignOut,
+}: {
+  user?: { name: string; email: string };
+  onSignOut?: () => void;
+}) {
   return (
     <header className="border-b border-[#b59868] bg-[#fbf3dd]/70 backdrop-blur">
-      <div className="max-w-[1200px] mx-auto px-6 h-16 flex items-center justify-between">
+      <div className="max-w-[1200px] mx-auto px-6 h-16 flex items-center justify-between gap-3">
         <Brand />
-        <ThemeToggle />
+        <div className="flex items-center gap-3">
+          {user && (
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#fbf3dd] border border-[#b59868] text-[12px] text-[#5a4226]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#10b981]" />
+              <span className="font-medium text-[#2b1d0e]">{user.name}</span>
+              <span className="text-[#8a6f44]">·</span>
+              <span className="text-[#8a6f44]">{user.email}</span>
+            </div>
+          )}
+          {onSignOut && (
+            <button
+              onClick={onSignOut}
+              className="px-3 py-1.5 rounded-full text-[12px] font-medium border border-[#b59868] bg-[#fbf3dd] hover:bg-[#efd6c1] hover:border-[#740001] hover:text-[#740001] text-[#5a4226] transition"
+              title="Sign out"
+            >
+              Sign out
+            </button>
+          )}
+          <ThemeToggle />
+        </div>
       </div>
     </header>
   );

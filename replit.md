@@ -11,17 +11,37 @@ A browser-based crowd intelligence demo (people count, safety zone, foot traffic
 - Wouter routing, Radix UI / shadcn-style components
 
 ## Project Layout
-- `artifacts/crowd-intel/` — the actual app (workspace package `@workspace/crowd-intel`)
+- `artifacts/crowd-intel/` — the React app (workspace package `@workspace/crowd-intel`)
+- `artifacts/auth-server/` — Express + Mongoose auth API (workspace package `@workspace/auth-server`)
 - `lib/` — shared workspace libs
 - `scripts/` — workspace scripts
 - `attached_assets/` — alias `@assets`
 - `artifacts/api-server/` and `artifacts/mockup-sandbox/` — leftover scaffolding, not used
+- `.data/mongo/` — local MongoDB data dir (git-ignored)
 
-## Replit Setup
-- Workflow `Start application` runs `PORT=5000 pnpm --filter @workspace/crowd-intel dev` and serves on port 5000.
-- Vite is configured with `host: 0.0.0.0`, `allowedHosts: true`, and reads the `PORT` env var, so the Replit iframe proxy works without changes.
+## Replit Setup (3 workflows)
+- `Start application` — `PORT=5000 pnpm --filter @workspace/crowd-intel dev` (port 5000, webview)
+- `Auth Server` — `AUTH_PORT=3001 MONGODB_URI=mongodb://127.0.0.1:27017/trinetra pnpm --filter @workspace/auth-server run dev` (port 3001, console)
+- `MongoDB` — `mongod --dbpath .data/mongo --bind_ip 127.0.0.1 --port 27017 --quiet` (port 27017, console)
+- Vite proxies `/api` → `127.0.0.1:3001`, so the frontend just calls relative `/api/auth/*` URLs.
+- `host: 0.0.0.0`, `allowedHosts: true`, reads `PORT` env var.
+
+## Auth
+- MongoDB-backed login. Default URI `mongodb://127.0.0.1:27017/trinetra` (override with `MONGODB_URI`).
+- Endpoints: `POST /api/auth/signup`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`.
+- JWT in httpOnly cookie `trinetra_token`, 7-day expiry. Override secret with `JWT_SECRET`.
+- Passwords hashed with bcryptjs (cost 10). User schema: `{ email, name, passwordHash }`.
+- Frontend `Gate` in `src/App.tsx` checks `/api/auth/me` on load and shows `Auth.tsx` (login/signup) when unauthenticated. Broadcaster route (`?broadcast=...`) is intentionally public.
+
+## Local Run (Windows / VS Code)
+1. Install MongoDB Community and run `mongod` (default port 27017).
+2. `pnpm install` at repo root.
+3. In one terminal: `pnpm --filter @workspace/auth-server dev` (auth API on :3001).
+4. In another: `pnpm --filter @workspace/crowd-intel dev` (frontend on :5000).
+5. The DB name is taken from the URI path; default is `trinetra`. Change it by setting `MONGODB_URI=mongodb://127.0.0.1:27017/<your-db-name>`.
 
 ## Deployment
-- Static deployment configured.
+- Static deployment configured for the frontend only.
 - Build: `pnpm --filter @workspace/crowd-intel run build`
 - Public dir: `artifacts/crowd-intel/dist/public`
+- Note: static deployment does NOT include the auth server or MongoDB. To deploy with auth, switch to a server-style deployment and provide a `MONGODB_URI` (e.g. MongoDB Atlas).

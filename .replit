@@ -18,6 +18,14 @@ author = "agent"
 task = "workflow.run"
 args = "Start application"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Auth Server"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "MongoDB"
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -29,6 +37,34 @@ waitForPort = 5000
 
 [workflows.workflow.metadata]
 outputType = "webview"
+
+[[workflows.workflow]]
+name = "Auth Server"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "AUTH_PORT=3001 MONGODB_URI=mongodb://127.0.0.1:27017/trinetra pnpm --filter @workspace/auth-server run dev"
+waitForPort = 3001
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "MongoDB"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "mongod --dbpath .data/mongo --bind_ip 127.0.0.1 --port 27017 --quiet"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[ports]]
+localPort = 3001
+externalPort = 3001
+exposeLocalhost = true
 
 [[ports]]
 localPort = 5000
