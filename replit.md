@@ -23,7 +23,8 @@ A browser-based crowd intelligence demo (people count, safety zone, foot traffic
 - `Start application` — `PORT=5000 pnpm --filter @workspace/crowd-intel dev` (port 5000, webview)
 - `Auth Server` — `AUTH_PORT=3001 MONGODB_URI=mongodb://127.0.0.1:27017/trinetra pnpm --filter @workspace/auth-server run dev` (port 3001, console)
 - `MongoDB` — `mongod --dbpath .data/mongo --bind_ip 127.0.0.1 --port 27017 --quiet` (port 27017, console)
-- Vite proxies `/api` → `127.0.0.1:3001`, so the frontend just calls relative `/api/auth/*` URLs.
+- Vite proxies `/_api` → `127.0.0.1:3001`, so the frontend just calls relative `/_api/auth/*` URLs.
+- IMPORTANT: do NOT use the `/api/*` prefix — Replit's edge proxy reserves that path and returns 502 before requests reach Vite. We use `/_api/*` instead.
 - `host: 0.0.0.0`, `allowedHosts: true`, reads `PORT` env var.
 
 ## Auth

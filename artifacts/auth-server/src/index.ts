@@ -19,14 +19,16 @@ async function main() {
     }),
   );
 
-  app.get("/api/health", (_req, res) => {
+  // NOTE: Replit's edge proxy reserves the "/api/*" path prefix and returns
+  // 502 before requests reach Vite, so we expose the backend under "/_api/*".
+  app.get("/_api/health", (_req, res) => {
     res.json({
       ok: true,
       mongo: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
     });
   });
 
-  app.use("/api/auth", authRouter);
+  app.use("/_api/auth", authRouter);
 
   app.use(
     (

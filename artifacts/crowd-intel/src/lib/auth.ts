@@ -30,7 +30,7 @@ async function jsonOrError(res: Response): Promise<unknown> {
 
 export async function fetchMe(): Promise<SessionUser | null> {
   try {
-    const res = await fetch("/api/auth/me", {
+    const res = await fetch("/_api/auth/me", {
       credentials: "include",
     });
     if (res.status === 401) return null;
@@ -45,7 +45,7 @@ export async function login(
   email: string,
   password: string,
 ): Promise<SessionUser> {
-  const res = await fetch("/api/auth/login", {
+  const res = await fetch("/_api/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
@@ -60,7 +60,7 @@ export async function signup(
   email: string,
   password: string,
 ): Promise<SessionUser> {
-  const res = await fetch("/api/auth/signup", {
+  const res = await fetch("/_api/auth/signup", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
@@ -71,7 +71,7 @@ export async function signup(
 }
 
 export async function logout(): Promise<void> {
-  await fetch("/api/auth/logout", {
+  await fetch("/_api/auth/logout", {
     method: "POST",
     credentials: "include",
   });
