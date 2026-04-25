@@ -1,6 +1,6 @@
-# TRINETRA AI — Crowd Safety Vision
+# TRINETRA : The Marauder's Eye — Crowd Safety Vision
 
-A hackathon-grade crowd safety website inspired by the user's friend's Flask + YOLOv8 project. Pure browser app — no server, no uploads. Marketing-grade light blue UI with zero technical jargon (no model names, FPS, confidence%, "backend", etc).
+A hackathon-grade crowd safety website inspired by the user's friend's Flask + YOLOv8 project. Pure browser app — no server, no uploads. **Harry Potter Marauder's Map themed** parchment UI with zero technical jargon (no model names, FPS, confidence%, "backend", etc).
 
 ## What it does
 
@@ -21,13 +21,18 @@ The user picks a source on the **Landing page** (webcam / video file / image), a
 
 Everything runs in the browser. No frame, count, or face ever leaves the device.
 
-## Visual design
+## Visual design — Marauder's Map theme
 
-- Light marketing theme — bg `#f4f7fb`, ink `#0f1f3d`
-- Brand: blue `#1d6cf3` + cyan `#06b6d4` gradient
-- Tier colors: SAFE `#10b981`, MODERATE `#f59e0b`, HIGH `#ef4444`, STAMPEDE `#b91c1c`
-- Inter font, generous spacing, rounded cards, soft shadows
-- Smooth fade/slide transitions between Landing and Dashboard
+- Parchment background `#f4e4bc`, ink charcoal `#2b1d0e`, muted ink `#5a4226`/`#8a6f44`
+- Gryffindor maroon `#740001` + Hogwarts gold `#b8860b` accents
+- Tier colors (kept vivid for safety): SAFE `#10b981`, MODERATE `#f59e0b`, HIGH `#ef4444`, STAMPEDE `#b91c1c`
+- **Cinzel** display + **IM Fell English** quill body — full Harry Potter feel
+- Lumos **gold-glow keyframe** around the live video stage (`.lumos` class)
+- **Spell-card horizontal carousel** on Landing with fade+slide+blur transitions, swipe + arrow-key + dot navigation
+- Hogwarts-themed feature names: Marauder's Count, Forbidden Corridor, Polyjuice Scan, Invisibility Check, Footstep Tally, Wandering Direction
+- **"Mischief Managed"** footer button — fades the parchment dashboard to ~5% opacity with a 6px blur, wipes alerts/history/foot-traffic/heatmap, then fades back in
+- Hero quote: "I solemnly swear that I am up to no good."
+- Footer signature: "Messrs Moony, Wormtail, Padfoot & Prongs are proud to present — The Marauder's Eye"
 
 ## Stack
 

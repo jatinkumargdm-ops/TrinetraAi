@@ -126,6 +126,7 @@ export default function Dashboard({
   const [traffic, setTraffic] = useState({ entered: 0, left: 0 });
   const [recording, setRecording] = useState(false);
   const [recordCountdown, setRecordCountdown] = useState(0);
+  const [dataHidden, setDataHidden] = useState(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recordRafRef = useRef<number | null>(null);
   const recordTimerRef = useRef<number | null>(null);
@@ -398,7 +399,7 @@ export default function Dashboard({
     out.height = h + footer;
     const ctx = out.getContext("2d");
     if (!ctx) return;
-    ctx.fillStyle = "#0f1f3d";
+    ctx.fillStyle = "#2b1d0e";
     ctx.fillRect(0, 0, w, h + footer);
     ctx.drawImage(srcEl as CanvasImageSource, 0, 0, w, h);
     if (showHeat && heat) {
@@ -412,8 +413,8 @@ export default function Dashboard({
 
     // Footer panel
     const grad = ctx.createLinearGradient(0, h, w, h + footer);
-    grad.addColorStop(0, "#0f1f3d");
-    grad.addColorStop(1, "#1d6cf3");
+    grad.addColorStop(0, "#2b1d0e");
+    grad.addColorStop(1, "#740001");
     ctx.fillStyle = grad;
     ctx.fillRect(0, h, w, footer);
     ctx.fillStyle = "#fff";
@@ -477,7 +478,7 @@ export default function Dashboard({
     const startedAt = Date.now();
 
     const drawFrame = () => {
-      ctx.fillStyle = "#0f1f3d";
+      ctx.fillStyle = "#2b1d0e";
       ctx.fillRect(0, 0, w, h + footer);
       try {
         ctx.drawImage(srcEl as CanvasImageSource, 0, 0, w, h);
@@ -495,8 +496,8 @@ export default function Dashboard({
 
       // Footer banner
       const grad = ctx.createLinearGradient(0, h, w, h + footer);
-      grad.addColorStop(0, "#0f1f3d");
-      grad.addColorStop(1, "#1d6cf3");
+      grad.addColorStop(0, "#2b1d0e");
+      grad.addColorStop(1, "#740001");
       ctx.fillStyle = grad;
       ctx.fillRect(0, h, w, footer);
 
@@ -626,6 +627,28 @@ export default function Dashboard({
     };
   }, []);
 
+  function handleMischiefManaged() {
+    setDataHidden(true);
+    // Fade out, then wipe the parchment
+    window.setTimeout(() => {
+      setAlerts([]);
+      setHistory([]);
+      setTraffic({ entered: 0, left: 0 });
+      setDemo({ avgAge: 0, male: 0, female: 0, masked: 0, faces: 0 });
+      setCount(0);
+      if (heatGridRef.current) heatGridRef.current.fill(0);
+      drawHeatmap();
+      // Clear the bounding-box overlay
+      const overlay = canvasRef.current;
+      if (overlay) {
+        const ctx = overlay.getContext("2d");
+        if (ctx) ctx.clearRect(0, 0, overlay.width, overlay.height);
+      }
+      pushAlert("Mischief Managed. The map is wiped.", "info");
+    }, 600);
+    window.setTimeout(() => setDataHidden(false), 1500);
+  }
+
   function checkBehaviour(tracks: Track[]) {
     const now = Date.now();
     for (const t of tracks) {
@@ -713,7 +736,7 @@ export default function Dashboard({
     ctx.font = "600 12px Inter, sans-serif";
     for (const f of faces) {
       const [x, y, w, h] = f.bbox;
-      ctx.strokeStyle = f.masked ? "#1d6cf3" : "#06b6d4";
+      ctx.strokeStyle = f.masked ? "#740001" : "#b8860b";
       ctx.lineWidth = 2;
       ctx.strokeRect(x, y, w, h);
       const label = `${Math.round(f.age)} ${f.gender === "male" ? "M" : "F"}${
@@ -842,20 +865,26 @@ export default function Dashboard({
               : "#10b981"
             : phase === "no_camera" || phase === "error"
               ? "#ef4444"
-              : "#1d6cf3"
+              : "#740001"
         }
       />
 
-      <main className="flex-1 max-w-[1400px] w-full mx-auto px-6 py-6 grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-5">
+      <main
+        className="flex-1 max-w-[1400px] w-full mx-auto px-6 py-6 grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-5 transition-all duration-500 ease-out"
+        style={{
+          opacity: dataHidden ? 0.05 : 1,
+          filter: dataHidden ? "blur(6px)" : "blur(0)",
+        }}
+      >
         <section className="space-y-5">
           {/* Video / Image stage */}
           <div className="card overflow-hidden">
-            <div className="px-5 py-3 border-b border-[#e6edf5] flex items-center justify-between">
+            <div className="px-5 py-3 border-b border-[#d6c08a] flex items-center justify-between">
               <div>
-                <div className="text-[11px] tracking-[0.18em] uppercase text-[#6b7d99]">
+                <div className="text-[11px] tracking-[0.18em] uppercase text-[#8a6f44]">
                   Scene
                 </div>
-                <div className="font-semibold text-[#0f1f3d]">
+                <div className="font-semibold text-[#2b1d0e]">
                   {source.kind === "webcam"
                     ? "Live camera"
                     : source.kind === "video"
@@ -866,7 +895,7 @@ export default function Dashboard({
               <SafetyBadge tier={tier} color={tierColor} />
             </div>
 
-            <div className="relative bg-[#0f1f3d] aspect-video">
+            <div className="relative bg-[#2b1d0e] aspect-video lumos rounded-lg overflow-hidden">
               <video
                 ref={videoRef}
                 playsInline
@@ -932,13 +961,13 @@ export default function Dashboard({
             </div>
 
             {/* Capacity slider */}
-            <div className="px-5 py-4 border-t border-[#e6edf5] flex flex-wrap items-center gap-5">
+            <div className="px-5 py-4 border-t border-[#d6c08a] flex flex-wrap items-center gap-5">
               <div className="flex-1 min-w-[260px]">
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-[12px] font-semibold text-[#314869] tracking-wide">
+                  <label className="text-[12px] font-semibold text-[#5a4226] tracking-wide">
                     Crowd capacity for this scene
                   </label>
-                  <span className="text-[12px] text-[#6b7d99]">
+                  <span className="text-[12px] text-[#8a6f44]">
                     {capacity} people
                   </span>
                 </div>
@@ -948,10 +977,10 @@ export default function Dashboard({
                   max={80}
                   value={capacity}
                   onChange={(e) => setCapacity(Number(e.target.value))}
-                  className="w-full accent-[#1d6cf3]"
+                  className="w-full accent-[#740001]"
                 />
               </div>
-              <div className="flex items-center gap-2 text-[12px] text-[#6b7d99]">
+              <div className="flex items-center gap-2 text-[12px] text-[#8a6f44]">
                 <Dot color="#10b981" /> Safe
                 <Dot color="#f59e0b" /> Watch
                 <Dot color="#ef4444" /> High
@@ -988,10 +1017,18 @@ export default function Dashboard({
         </aside>
       </main>
 
-      <footer className="border-t border-[#e6edf5] py-4">
-        <div className="max-w-[1400px] mx-auto px-6 flex items-center justify-between text-[12px] text-[#6b7d99]">
-          <span>TRINETRA AI · Crowd safety vision</span>
-          <span>Runs entirely in your browser</span>
+      <footer className="border-t border-[#d6c08a] py-4">
+        <div className="max-w-[1400px] mx-auto px-6 flex items-center justify-between text-[12px] text-[#8a6f44]">
+          <span className="font-quill italic">
+            Messrs Moony, Wormtail, Padfoot &amp; Prongs · The Marauder's Eye
+          </span>
+          <button
+            onClick={handleMischiefManaged}
+            className="btn btn-primary"
+            title="Clear all alerts, history & heatmap"
+          >
+            Mischief Managed.
+          </button>
         </div>
       </footer>
     </div>
@@ -1036,11 +1073,11 @@ function TopBar({
   statusColor: string;
 }) {
   return (
-    <header className="border-b border-[#e6edf5] bg-white/80 backdrop-blur sticky top-0 z-20">
+    <header className="border-b border-[#d6c08a] bg-white/80 backdrop-blur sticky top-0 z-20">
       <div className="max-w-[1400px] mx-auto px-6 h-16 flex items-center justify-between gap-3">
         <Brand />
         <div className="flex items-center gap-2">
-          <span className="hidden sm:inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#f4f7fb] border border-[#e6edf5]">
+          <span className="hidden sm:inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#f4e4bc] border border-[#d6c08a]">
             <span
               className="w-2 h-2 rounded-full"
               style={{
@@ -1049,7 +1086,7 @@ function TopBar({
                   statusLabel === "Live" ? "pulse-dot 1.6s infinite" : undefined,
               }}
             />
-            <span className="text-[12px] font-semibold text-[#314869]">
+            <span className="text-[12px] font-semibold text-[#5a4226]">
               {statusLabel}
             </span>
           </span>
@@ -1060,7 +1097,7 @@ function TopBar({
             title={showHeat ? "Hide heatmap" : "Show heatmap"}
             style={
               showHeat
-                ? { borderColor: "#1d6cf3", color: "#1d6cf3" }
+                ? { borderColor: "#740001", color: "#740001" }
                 : undefined
             }
           >
@@ -1170,8 +1207,8 @@ function PrimaryCount({
         borderColor: danger ? "#ef4444" : undefined,
       }}
     >
-      <div className="text-[11px] tracking-[0.18em] uppercase text-[#6b7d99]">
-        People right now
+      <div className="text-[11px] tracking-[0.18em] uppercase text-[#8a6f44]">
+        Marauder's Count
       </div>
       <div
         className="font-display font-extrabold text-[64px] leading-none mt-1.5"
@@ -1180,12 +1217,12 @@ function PrimaryCount({
         {count}
       </div>
       <div className="mt-3 flex items-center justify-between text-[13px]">
-        <span className="text-[#6b7d99]">Capacity</span>
-        <span className="font-semibold text-[#0f1f3d]">{capacity}</span>
+        <span className="text-[#8a6f44]">Capacity</span>
+        <span className="font-semibold text-[#2b1d0e]">{capacity}</span>
       </div>
       <div className="flex items-center justify-between text-[13px] mt-1">
-        <span className="text-[#6b7d99]">Peak this session</span>
-        <span className="font-semibold text-[#0f1f3d]">{peak}</span>
+        <span className="text-[#8a6f44]">Peak this session</span>
+        <span className="font-semibold text-[#2b1d0e]">{peak}</span>
       </div>
     </div>
   );
@@ -1194,23 +1231,23 @@ function PrimaryCount({
 function TrafficCard({ entered, left }: { entered: number; left: number }) {
   return (
     <div className="card p-5">
-      <div className="text-[11px] tracking-[0.18em] uppercase text-[#6b7d99]">
-        Foot traffic
+      <div className="text-[11px] tracking-[0.18em] uppercase text-[#8a6f44]">
+        Footstep Tally
       </div>
       <div className="mt-3 grid grid-cols-2 gap-3">
-        <div className="rounded-lg bg-[#f0f8ff] border border-[#dbeafe] p-3">
-          <div className="flex items-center gap-1.5 text-[#1d6cf3] text-[11px] font-semibold uppercase tracking-wide">
+        <div className="rounded-lg bg-[#fbf3dd] border border-[#d6c08a] p-3">
+          <div className="flex items-center gap-1.5 text-[#740001] text-[11px] font-semibold uppercase tracking-wide">
             <ArrowInIcon /> Entered
           </div>
-          <div className="font-display font-bold text-[26px] text-[#0f1f3d] mt-1 leading-none">
+          <div className="font-display font-bold text-[26px] text-[#2b1d0e] mt-1 leading-none">
             {entered}
           </div>
         </div>
-        <div className="rounded-lg bg-[#f8fafc] border border-[#e6edf5] p-3">
-          <div className="flex items-center gap-1.5 text-[#6b7d99] text-[11px] font-semibold uppercase tracking-wide">
+        <div className="rounded-lg bg-[#fbf3dd] border border-[#d6c08a] p-3">
+          <div className="flex items-center gap-1.5 text-[#8a6f44] text-[11px] font-semibold uppercase tracking-wide">
             <ArrowOutIcon /> Left
           </div>
-          <div className="font-display font-bold text-[26px] text-[#0f1f3d] mt-1 leading-none">
+          <div className="font-display font-bold text-[26px] text-[#2b1d0e] mt-1 leading-none">
             {left}
           </div>
         </div>
@@ -1248,10 +1285,10 @@ function SafetyMeter({
   const pct = Math.min(100, (count / Math.max(1, capacity)) * 80);
   return (
     <div className="card p-5">
-      <div className="text-[11px] tracking-[0.18em] uppercase text-[#6b7d99]">
-        Safety zone
+      <div className="text-[11px] tracking-[0.18em] uppercase text-[#8a6f44]">
+        Forbidden Corridor
       </div>
-      <div className="mt-2 mb-3 font-semibold text-[#0f1f3d]">
+      <div className="mt-2 mb-3 font-semibold text-[#2b1d0e]">
         {TIER_LABEL[tier]}
       </div>
       <div className="relative h-2.5 rounded-full overflow-hidden bg-[#eef3fa]">
@@ -1264,11 +1301,11 @@ function SafetyMeter({
           }}
         />
         <div
-          className="absolute top-[-4px] w-[3px] h-[18px] rounded-sm bg-[#0f1f3d] transition-all duration-300"
+          className="absolute top-[-4px] w-[3px] h-[18px] rounded-sm bg-[#2b1d0e] transition-all duration-300"
           style={{ left: `calc(${pct}% - 1.5px)` }}
         />
       </div>
-      <div className="mt-2 flex justify-between text-[11px] text-[#6b7d99]">
+      <div className="mt-2 flex justify-between text-[11px] text-[#8a6f44]">
         <span>Safe</span>
         <span>Watch</span>
         <span>High</span>
@@ -1287,11 +1324,11 @@ function FlowCard({
   const friendly = flow.label.replace("-", " ").toLowerCase();
   return (
     <div className="card p-5">
-      <div className="text-[11px] tracking-[0.18em] uppercase text-[#6b7d99]">
-        Crowd flow
+      <div className="text-[11px] tracking-[0.18em] uppercase text-[#8a6f44]">
+        Wandering Direction
       </div>
       <div className="mt-3 flex items-center gap-4">
-        <div className="relative w-[68px] h-[68px] rounded-full bg-[#f4f7fb] border border-[#e6edf5] flex items-center justify-center shrink-0">
+        <div className="relative w-[68px] h-[68px] rounded-full bg-[#f4e4bc] border border-[#d6c08a] flex items-center justify-center shrink-0">
           {showArrow ? (
             <svg
               width="44"
@@ -1304,7 +1341,7 @@ function FlowCard({
             >
               <path
                 d="M12 3 L17 12 L13 12 L13 21 L11 21 L11 12 L7 12 Z"
-                fill="#1d6cf3"
+                fill="#740001"
               />
             </svg>
           ) : (
@@ -1312,10 +1349,10 @@ function FlowCard({
           )}
         </div>
         <div>
-          <div className="font-display font-bold text-[20px] capitalize text-[#0f1f3d]">
+          <div className="font-display font-bold text-[20px] capitalize text-[#2b1d0e]">
             {showArrow ? friendly : "No motion"}
           </div>
-          <div className="text-[12px] text-[#6b7d99] mt-0.5">
+          <div className="text-[12px] text-[#8a6f44] mt-0.5">
             {showArrow
               ? "Average direction of movement"
               : "Crowd is mostly still"}
@@ -1334,36 +1371,36 @@ function DemographicsCard({
   return (
     <div className="card p-5">
       <div className="flex items-center justify-between">
-        <div className="text-[11px] tracking-[0.18em] uppercase text-[#6b7d99]">
-          Demographics
+        <div className="text-[11px] tracking-[0.18em] uppercase text-[#8a6f44]">
+          Polyjuice Scan
         </div>
-        <span className="text-[11px] text-[#6b7d99]">
+        <span className="text-[11px] text-[#8a6f44]">
           {demo.faces} face{demo.faces === 1 ? "" : "s"}
         </span>
       </div>
       <div className="mt-3 flex items-baseline gap-2">
-        <span className="font-display font-bold text-[32px] text-[#0f1f3d]">
+        <span className="font-display font-bold text-[32px] text-[#2b1d0e]">
           {demo.faces ? Math.round(demo.avgAge) : "—"}
         </span>
-        <span className="text-[12px] text-[#6b7d99]">avg age</span>
+        <span className="text-[12px] text-[#8a6f44]">avg age</span>
       </div>
       <div className="mt-3 h-2 rounded-full overflow-hidden bg-[#eef3fa] flex">
         <div
           className="h-full transition-all duration-500"
-          style={{ width: `${demo.male}%`, background: "#1d6cf3" }}
+          style={{ width: `${demo.male}%`, background: "#740001" }}
         />
         <div
           className="h-full transition-all duration-500"
-          style={{ width: `${demo.female}%`, background: "#06b6d4" }}
+          style={{ width: `${demo.female}%`, background: "#b8860b" }}
         />
       </div>
       <div className="mt-2 flex justify-between text-[12px]">
-        <span className="text-[#314869]">
-          <Dot color="#1d6cf3" />{" "}
+        <span className="text-[#5a4226]">
+          <Dot color="#740001" />{" "}
           <span className="ml-1.5">Men {Math.round(demo.male)}%</span>
         </span>
-        <span className="text-[#314869]">
-          <Dot color="#06b6d4" />{" "}
+        <span className="text-[#5a4226]">
+          <Dot color="#b8860b" />{" "}
           <span className="ml-1.5">Women {Math.round(demo.female)}%</span>
         </span>
       </div>
@@ -1376,18 +1413,18 @@ function MaskCard({ demo }: { demo: { masked: number; faces: number } }) {
   const bad = demo.masked < 30 && demo.faces > 0;
   return (
     <div className="card p-5">
-      <div className="text-[11px] tracking-[0.18em] uppercase text-[#6b7d99]">
-        Mask compliance
+      <div className="text-[11px] tracking-[0.18em] uppercase text-[#5a4226]">
+        Invisibility Check
       </div>
       <div className="mt-3 flex items-end gap-2">
         <span
           className="font-display font-bold text-[32px]"
-          style={{ color: ok ? "#10b981" : bad ? "#ef4444" : "#0f1f3d" }}
+          style={{ color: ok ? "#10b981" : bad ? "#ef4444" : "#2b1d0e" }}
         >
           {demo.faces ? Math.round(demo.masked) : "—"}
           {demo.faces ? "%" : ""}
         </span>
-        <span className="text-[12px] text-[#6b7d99] mb-1.5">wearing masks</span>
+        <span className="text-[12px] text-[#8a6f44] mb-1.5">wearing masks</span>
       </div>
       <div className="mt-3 h-2 rounded-full overflow-hidden bg-[#eef3fa]">
         <div
@@ -1432,10 +1469,10 @@ function HistoryChart({
     <div className="card p-5">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <div className="text-[11px] tracking-[0.18em] uppercase text-[#6b7d99]">
+          <div className="text-[11px] tracking-[0.18em] uppercase text-[#8a6f44]">
             Crowd over time
           </div>
-          <div className="font-semibold text-[#0f1f3d]">Last 60 readings</div>
+          <div className="font-semibold text-[#2b1d0e]">Last 60 readings</div>
         </div>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-[200px]">
@@ -1454,7 +1491,7 @@ function HistoryChart({
               x2={W - pad}
               y1={y}
               y2={y}
-              stroke="#e6edf5"
+              stroke="#d6c08a"
               strokeWidth="1"
             />
           );
@@ -1464,7 +1501,7 @@ function HistoryChart({
           x2={W - pad}
           y1={capY}
           y2={capY}
-          stroke="#1d6cf3"
+          stroke="#740001"
           strokeWidth="1.4"
           strokeDasharray="5 4"
           opacity="0.6"
@@ -1475,7 +1512,7 @@ function HistoryChart({
           textAnchor="end"
           fontFamily="Inter"
           fontSize="11"
-          fill="#1d6cf3"
+          fill="#740001"
         >
           Capacity {capacity}
         </text>
@@ -1515,10 +1552,10 @@ function AlertsFeed({ alerts }: { alerts: AlertItem[] }) {
     <div className="card p-5 flex flex-col">
       <div className="flex items-center justify-between mb-2">
         <div>
-          <div className="text-[11px] tracking-[0.18em] uppercase text-[#6b7d99]">
+          <div className="text-[11px] tracking-[0.18em] uppercase text-[#8a6f44]">
             Alerts
           </div>
-          <div className="font-semibold text-[#0f1f3d]">Latest events</div>
+          <div className="font-semibold text-[#2b1d0e]">Latest events</div>
         </div>
         <span className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse" />
       </div>
@@ -1534,19 +1571,19 @@ function AlertsFeed({ alerts }: { alerts: AlertItem[] }) {
               ? "#ef4444"
               : a.tone === "warn"
                 ? "#f59e0b"
-                : "#1d6cf3";
+                : "#740001";
           return (
             <div
               key={a.id}
-              className="flex items-start gap-2 p-2 rounded-lg bg-[#f8fafc] border border-[#e6edf5]"
+              className="flex items-start gap-2 p-2 rounded-lg bg-[#fbf3dd] border border-[#d6c08a]"
             >
               <span
                 className="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0"
                 style={{ background: c }}
               />
               <div className="flex-1 min-w-0">
-                <div className="text-[13px] text-[#0f1f3d]">{a.text}</div>
-                <div className="text-[11px] text-[#6b7d99] mt-0.5">{a.ts}</div>
+                <div className="text-[13px] text-[#2b1d0e]">{a.text}</div>
+                <div className="text-[11px] text-[#8a6f44] mt-0.5">{a.ts}</div>
               </div>
             </div>
           );
@@ -1558,7 +1595,7 @@ function AlertsFeed({ alerts }: { alerts: AlertItem[] }) {
 
 function BootOverlay({ msg }: { msg: string }) {
   return (
-    <div className="absolute inset-0 bg-[#0f1f3d]/90 flex flex-col items-center justify-center text-white">
+    <div className="absolute inset-0 bg-[#2b1d0e]/90 flex flex-col items-center justify-center text-white">
       <div
         className="w-12 h-12 rounded-full border-2 border-white/30 border-t-white"
         style={{ animation: "spin 0.9s linear infinite" }}
@@ -1581,7 +1618,7 @@ function ErrorOverlay({
   onPrimary: () => void;
 }) {
   return (
-    <div className="absolute inset-0 bg-[#0f1f3d]/90 flex flex-col items-center justify-center text-white p-6 text-center">
+    <div className="absolute inset-0 bg-[#2b1d0e]/90 flex flex-col items-center justify-center text-white p-6 text-center">
       <div className="font-display font-bold text-[22px] mb-2">{title}</div>
       <div className="text-[13px] text-white/70 max-w-md mb-5">{body}</div>
       <button onClick={onPrimary} className="btn btn-primary">

@@ -1,39 +1,104 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export type SourceConfig =
   | { kind: "webcam" }
   | { kind: "video"; file: File }
   | { kind: "image"; file: File };
 
+type CardKey = "webcam" | "video" | "image";
+
+const CARDS: {
+  key: CardKey;
+  spell: string;
+  title: string;
+  subtitle: string;
+  body: string;
+  cta: string;
+  icon: (cls?: string) => React.ReactNode;
+}[] = [
+  {
+    key: "webcam",
+    spell: "Lumos",
+    title: "Reveal Your Map",
+    subtitle: "Open your live camera to scan the corridor.",
+    body: "The Marauder's Eye watches every footstep through the lens of your wand.",
+    cta: "Cast Lumos",
+    icon: WandIcon,
+  },
+  {
+    key: "video",
+    spell: "Pensieve",
+    title: "Recall a Memory",
+    subtitle: "Pour a recorded video into the basin.",
+    body: "Drop in any MP4, WebM or MOV and watch it unfold across the map.",
+    cta: "Choose memory",
+    icon: PensieveIcon,
+  },
+  {
+    key: "image",
+    spell: "Photograph",
+    title: "Pin a Moving Portrait",
+    subtitle: "Examine a single still scene.",
+    body: "Hand the Eye a photograph and it will tell you who is in the frame.",
+    cta: "Choose portrait",
+    icon: PortraitIcon,
+  },
+];
+
 export default function Landing({
   onStart,
 }: {
   onStart: (cfg: SourceConfig) => void;
 }) {
-  const videoRef = useRef<HTMLInputElement>(null);
-  const imageRef = useRef<HTMLInputElement>(null);
+  const videoFileRef = useRef<HTMLInputElement>(null);
+  const imageFileRef = useRef<HTMLInputElement>(null);
+  const touchStartX = useRef<number | null>(null);
   const [leaving, setLeaving] = useState(false);
+  const [active, setActive] = useState(0);
+  const [direction, setDirection] = useState<1 | -1>(1);
 
   const start = (cfg: SourceConfig) => {
     setLeaving(true);
     setTimeout(() => onStart(cfg), 320);
   };
 
+  const goTo = (next: number) => {
+    const n = (next + CARDS.length) % CARDS.length;
+    setDirection(n > active || (n === 0 && active === CARDS.length - 1) ? 1 : -1);
+    setActive(n);
+  };
+
+  const triggerActive = () => {
+    const card = CARDS[active];
+    if (card.key === "webcam") start({ kind: "webcam" });
+    else if (card.key === "video") videoFileRef.current?.click();
+    else imageFileRef.current?.click();
+  };
+
+  // Keyboard arrow navigation
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (leaving) return;
+      if (e.key === "ArrowRight") goTo(active + 1);
+      else if (e.key === "ArrowLeft") goTo(active - 1);
+      else if (e.key === "Enter") triggerActive();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, leaving]);
+
   return (
     <div
       className={`min-h-screen flex flex-col transition-all duration-300 ease-out ${
         leaving ? "opacity-0 -translate-y-2" : "opacity-100 translate-y-0"
       }`}
-      style={{ animation: !leaving ? "landingIn 0.5s ease-out" : undefined }}
+      style={{ animation: !leaving ? "landingIn 0.6s ease-out" : undefined }}
     >
       <style>{`
         @keyframes landingIn {
           from { opacity: 0; transform: translateY(8px); }
           to   { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes cardIn {
-          from { opacity: 0; transform: translateY(12px) scale(0.98); }
-          to   { opacity: 1; transform: translateY(0) scale(1); }
         }
       `}</style>
 
@@ -41,96 +106,122 @@ export default function Landing({
 
       <main className="flex-1 max-w-[1200px] w-full mx-auto px-6 py-10 lg:py-14 grid grid-cols-1 lg:grid-cols-[1.05fr_1fr] gap-12 items-center">
         <section style={{ animation: "landingIn 0.6s ease-out both" }}>
-          <span className="tag bg-[#e1ecff] text-[#1d6cf3] mb-5">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#1d6cf3]" />
-            CROWD SAFETY · IN YOUR BROWSER
+          <span className="tag bg-[#efd6c1] text-[#740001] mb-5 border border-[#b59868]">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#740001]" />
+            The Marauder's Eye · Hogwarts Edition
           </span>
-          <h1 className="font-display font-extrabold text-[44px] lg:text-[58px] leading-[1.05] tracking-tight text-[#0f1f3d]">
-            See the crowd.
+          <h1 className="font-display font-extrabold text-[40px] lg:text-[56px] leading-[1.05] tracking-tight text-[#2b1d0e]">
+            <span className="font-quill italic">"I solemnly swear</span>
             <br />
-            <span className="brand-gradient">Stop the stampede.</span>
+            <span className="brand-gradient font-quill italic">that I am up to no good."</span>
           </h1>
-          <p className="mt-5 text-[17px] leading-[1.6] text-[#314869] max-w-[560px]">
-            TRINETRA AI watches a live camera, recorded video or photo and tells
-            you in real time how crowded the scene is, who's there, and whether
-            anything looks unsafe — privately, on your device.
+          <p className="mt-6 text-[17px] leading-[1.7] text-[#5a4226] max-w-[560px] font-quill italic">
+            Tap your wand to the parchment. The Marauder's Eye reveals every
+            footstep in the corridor — counting souls, sensing peril, watching
+            the Forbidden Corridor for trouble.
           </p>
 
-          <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-[640px]">
-            <Pill label="Live people count" />
-            <Pill label="Safety zones" />
-            <Pill label="Age & gender" />
-            <Pill label="Mask check" />
-            <Pill label="Fall / run alerts" />
-            <Pill label="Crowd flow" />
-            <Pill label="Audio alarm" />
-            <Pill label="100% private" />
+          <div className="mt-8 flex flex-wrap gap-3">
+            <SpellChip label="Marauder's Count" />
+            <SpellChip label="Forbidden Corridor" />
+            <SpellChip label="Polyjuice Scan" />
+            <SpellChip label="Invisibility Check" />
           </div>
         </section>
 
         <section
-          className="card p-7"
-          style={{ animation: "cardIn 0.55s 0.1s ease-out both" }}
+          className="relative"
+          onTouchStart={(e) => {
+            touchStartX.current = e.touches[0].clientX;
+          }}
+          onTouchEnd={(e) => {
+            if (touchStartX.current == null) return;
+            const dx = e.changedTouches[0].clientX - touchStartX.current;
+            if (Math.abs(dx) > 40) goTo(active + (dx < 0 ? 1 : -1));
+            touchStartX.current = null;
+          }}
         >
-          <h2 className="font-display font-bold text-[20px] text-[#0f1f3d]">
-            Choose a source
-          </h2>
-          <p className="text-[14px] text-[#6b7d99] mt-1">
-            Pick how TRINETRA AI should see the scene.
-          </p>
+          <div className="card p-7 min-h-[440px] relative overflow-hidden">
+            <div className="flex items-center justify-between relative z-10">
+              <h2 className="font-display font-bold text-[18px] text-[#2b1d0e] tracking-wide uppercase">
+                Choose your spell
+              </h2>
+              <span className="text-[12px] font-quill italic text-[#8a6f44]">
+                {active + 1} / {CARDS.length}
+              </span>
+            </div>
 
-          <div className="mt-6 space-y-3">
-            <SourceCard
-              title="Use webcam"
-              subtitle="Scan the live feed from your device camera"
-              icon={<WebcamIcon />}
-              cta="Start"
-              variant="primary"
-              onClick={() => start({ kind: "webcam" })}
-            />
+            <div className="relative mt-6 min-h-[300px]">
+              {CARDS.map((card, i) => (
+                <SpellCard
+                  key={card.key}
+                  card={card}
+                  active={i === active}
+                  direction={direction}
+                  onActivate={triggerActive}
+                />
+              ))}
+            </div>
 
-            <SourceCard
-              title="Upload a video"
-              subtitle="Analyse an MP4 / WebM / MOV recording"
-              icon={<VideoIcon />}
-              cta="Choose file"
-              onClick={() => videoRef.current?.click()}
-            />
+            {/* Carousel controls */}
+            <div className="flex items-center justify-between mt-6 relative z-10">
+              <button
+                onClick={() => goTo(active - 1)}
+                className="w-10 h-10 rounded-full border border-[#b59868] bg-[#fbf3dd] hover:bg-[#efd6c1] hover:border-[#740001] hover:text-[#740001] flex items-center justify-center transition shadow-sm"
+                aria-label="Previous spell"
+              >
+                <ChevronLeft />
+              </button>
 
-            <SourceCard
-              title="Upload a photo"
-              subtitle="Run a one-shot analysis on a JPG or PNG"
-              icon={<ImageIcon />}
-              cta="Choose file"
-              onClick={() => imageRef.current?.click()}
-            />
+              <div className="flex items-center gap-2">
+                {CARDS.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      setDirection(i > active ? 1 : -1);
+                      setActive(i);
+                    }}
+                    className="rounded-full transition-all"
+                    style={{
+                      width: i === active ? 24 : 8,
+                      height: 8,
+                      background: i === active ? "#740001" : "#b59868",
+                    }}
+                    aria-label={`Go to spell ${i + 1}`}
+                  />
+                ))}
+              </div>
 
-            <input
-              ref={videoRef}
-              type="file"
-              accept="video/*"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) start({ kind: "video", file: f });
-              }}
-            />
-            <input
-              ref={imageRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) start({ kind: "image", file: f });
-              }}
-            />
+              <button
+                onClick={() => goTo(active + 1)}
+                className="w-10 h-10 rounded-full border border-[#b59868] bg-[#fbf3dd] hover:bg-[#efd6c1] hover:border-[#740001] hover:text-[#740001] flex items-center justify-center transition shadow-sm"
+                aria-label="Next spell"
+              >
+                <ChevronRight />
+              </button>
+            </div>
           </div>
 
-          <p className="mt-6 text-[12px] text-[#6b7d99] leading-relaxed">
-            By starting, you agree that the camera or file you choose will be
-            analysed locally. Nothing is uploaded.
-          </p>
+          <input
+            ref={videoFileRef}
+            type="file"
+            accept="video/*"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) start({ kind: "video", file: f });
+            }}
+          />
+          <input
+            ref={imageFileRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) start({ kind: "image", file: f });
+            }}
+          />
         </section>
       </main>
 
@@ -139,50 +230,67 @@ export default function Landing({
   );
 }
 
-function SourceCard({
-  title,
-  subtitle,
-  icon,
-  onClick,
-  cta,
-  variant,
+function SpellCard({
+  card,
+  active,
+  direction,
+  onActivate,
 }: {
-  title: string;
-  subtitle: string;
-  icon: React.ReactNode;
-  onClick: () => void;
-  cta: string;
-  variant?: "primary" | "default";
+  card: typeof CARDS[number];
+  active: boolean;
+  direction: 1 | -1;
+  onActivate: () => void;
 }) {
-  const primary = variant === "primary";
   return (
-    <button
-      onClick={onClick}
-      className="w-full text-left flex items-center gap-4 p-4 rounded-xl border border-[#e6edf5] bg-[#f8fafc] hover:border-[#1d6cf3] hover:bg-white hover:shadow-md transition group"
+    <div
+      className="absolute inset-0 transition-all duration-500 ease-out"
+      style={{
+        opacity: active ? 1 : 0,
+        transform: active
+          ? "translateX(0) rotate(0)"
+          : `translateX(${direction * 60}px) rotate(${direction * 0.6}deg)`,
+        pointerEvents: active ? "auto" : "none",
+        filter: active ? "blur(0)" : "blur(2px)",
+      }}
     >
-      <div
-        className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition group-hover:scale-105 ${
-          primary
-            ? "bg-gradient-to-br from-[#1d6cf3] to-[#06b6d4] text-white shadow-md"
-            : "bg-white border border-[#d8e2ee] text-[#1d6cf3]"
-        }`}
-      >
-        {icon}
+      <div className="flex flex-col items-center text-center pt-2">
+        <div
+          className="w-20 h-20 rounded-full flex items-center justify-center mb-4 shadow-md"
+          style={{
+            background:
+              "radial-gradient(circle, #fff5d4 0%, #f4e4bc 60%, #d6b974 100%)",
+            border: "2px solid #b59868",
+            boxShadow:
+              "0 0 24px rgba(255, 200, 90, 0.45), inset 0 0 12px rgba(255, 220, 130, 0.5)",
+          }}
+        >
+          {card.icon()}
+        </div>
+        <span className="tag bg-[#efd6c1] text-[#740001] border border-[#b59868] mb-3">
+          {card.spell}
+        </span>
+        <h3 className="font-display font-bold text-[26px] text-[#2b1d0e] tracking-tight">
+          {card.title}
+        </h3>
+        <p className="font-quill italic text-[#5a4226] mt-2 max-w-[340px] text-[15px] leading-relaxed">
+          {card.body}
+        </p>
+        <p className="text-[13px] text-[#8a6f44] mt-2">{card.subtitle}</p>
+
+        <button onClick={onActivate} className="btn btn-primary mt-6">
+          {card.cta} →
+        </button>
       </div>
-      <div className="flex-1 min-w-0">
-        <div className="font-semibold text-[#0f1f3d]">{title}</div>
-        <div className="text-[13px] text-[#6b7d99] mt-0.5">{subtitle}</div>
-      </div>
-      <span className="text-[13px] font-semibold text-[#1d6cf3] group-hover:translate-x-1 transition">
-        {cta} →
-      </span>
-    </button>
+    </div>
   );
 }
 
-function Pill({ label }: { label: string }) {
+function SpellChip({ label }: { label: string }) {
   return (
-    <div className="px-3 py-2 rounded-lg bg-white border border-[#e6edf5] text-[13px] font-medium text-[#314869] text-center">
+    <div
+      className="px-3 py-1.5 rounded-full bg-[#fbf3dd] border border-[#b59868] text-[12px] font-medium text-[#5a4226]"
+      style={{ fontFamily: "'Cinzel', serif", letterSpacing: "0.05em" }}
+    >
       {label}
     </div>
   );
@@ -190,12 +298,9 @@ function Pill({ label }: { label: string }) {
 
 function Header() {
   return (
-    <header className="border-b border-[#e6edf5] bg-white/70 backdrop-blur">
+    <header className="border-b border-[#b59868] bg-[#fbf3dd]/70 backdrop-blur">
       <div className="max-w-[1200px] mx-auto px-6 h-16 flex items-center justify-between">
         <Brand />
-        <div className="hidden md:flex items-center gap-3 text-[13px] font-medium text-[#314869]">
-          <span className="tag bg-[#e1ecff] text-[#1d6cf3]">Hackathon Edition</span>
-        </div>
       </div>
     </header>
   );
@@ -203,10 +308,12 @@ function Header() {
 
 function Footer() {
   return (
-    <footer className="border-t border-[#e6edf5] py-5">
-      <div className="max-w-[1200px] mx-auto px-6 flex items-center justify-between text-[12px] text-[#6b7d99]">
-        <span>TRINETRA AI · Crowd safety vision</span>
-        <span>Runs entirely in your browser</span>
+    <footer className="border-t border-[#b59868] py-5">
+      <div className="max-w-[1200px] mx-auto px-6 flex items-center justify-center text-[12px] text-[#8a6f44]">
+        <span className="font-quill italic">
+          Messrs Moony, Wormtail, Padfoot &amp; Prongs are proud to present —
+          The Marauder's Eye
+        </span>
       </div>
     </footer>
   );
@@ -215,19 +322,27 @@ function Footer() {
 export function Brand() {
   return (
     <div className="flex items-center gap-3">
-      <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-[#1d6cf3] to-[#06b6d4] flex items-center justify-center shadow-md">
+      <div
+        className="relative w-10 h-10 rounded-full flex items-center justify-center"
+        style={{
+          background:
+            "radial-gradient(circle, #fff5d4 0%, #d6b974 60%, #8a6f44 100%)",
+          border: "2px solid #2b1d0e",
+          boxShadow: "0 0 12px rgba(255, 200, 90, 0.55)",
+        }}
+      >
         <EyeIcon />
         <span
-          className="absolute inset-0 rounded-xl pointer-events-none"
+          className="absolute inset-0 rounded-full pointer-events-none"
           style={{ animation: "pulse-ring 2.4s infinite" }}
         />
       </div>
       <div className="leading-tight">
-        <div className="font-display font-extrabold text-[18px] tracking-tight text-[#0f1f3d]">
-          TRINETRA <span className="brand-gradient">AI</span>
+        <div className="font-display font-extrabold text-[16px] tracking-tight text-[#2b1d0e]">
+          TRINETRA <span className="brand-gradient">: The Marauder's Eye</span>
         </div>
-        <div className="text-[10.5px] tracking-[0.18em] text-[#6b7d99] uppercase">
-          Crowd Safety Vision
+        <div className="text-[10px] tracking-[0.22em] text-[#8a6f44] uppercase font-quill italic">
+          Mischief Detected
         </div>
       </div>
     </div>
@@ -236,39 +351,52 @@ export function Brand() {
 
 function EyeIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2b1d0e" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
-      <circle cx="12" cy="12" r="3" />
+      <circle cx="12" cy="12" r="3" fill="#740001" stroke="#740001" />
     </svg>
   );
 }
 
-function WebcamIcon() {
+function WandIcon() {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="11" r="6" />
-      <circle cx="12" cy="11" r="2" />
-      <path d="M5 21h14" />
-      <path d="M9 21l1-3M15 21l-1-3" />
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#2b1d0e" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 21l13-13" />
+      <path d="M16 8l3-3" />
+      <circle cx="19" cy="5" r="1.6" fill="#b8860b" stroke="#b8860b" />
+      <path d="M19 5l1.5-1.5M19 5l1.5 1.5M19 5l-1.5-1.5M19 5l-1.5 1.5" stroke="#b8860b" strokeWidth="1" />
     </svg>
   );
 }
-
-function VideoIcon() {
+function PensieveIcon() {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="6" width="14" height="12" rx="2" />
-      <path d="M22 8l-6 4 6 4V8z" />
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#2b1d0e" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 10h18l-2 9a2 2 0 0 1-2 1.6H7a2 2 0 0 1-2-1.6z" />
+      <path d="M5 10c2-3 4-5 7-5s5 2 7 5" />
+      <path d="M9 14a3 3 0 0 0 6 0" />
     </svg>
   );
 }
-
-function ImageIcon() {
+function PortraitIcon() {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="3" width="18" height="18" rx="2" />
-      <circle cx="9" cy="9" r="2" />
-      <path d="M21 15l-5-5L5 21" />
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#2b1d0e" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="3" width="16" height="18" rx="2" />
+      <circle cx="12" cy="10" r="3" />
+      <path d="M6 19c1.5-3 4-4 6-4s4.5 1 6 4" />
+    </svg>
+  );
+}
+function ChevronLeft() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 6l-6 6 6 6" />
+    </svg>
+  );
+}
+function ChevronRight() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 6l6 6-6 6" />
     </svg>
   );
 }

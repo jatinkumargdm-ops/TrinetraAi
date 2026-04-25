@@ -54,7 +54,9 @@ export async function detectFrame(
   withFaces: boolean,
 ): Promise<FrameDetections> {
   if (!cocoModel) return { personBoxes: [], faces: [] };
-  const preds = await cocoModel.detect(source, 30);
+  // Lower minScore (default 0.5) and bump max detections so dense crowds
+  // and partially-occluded people are picked up.
+  const preds = await cocoModel.detect(source, 100, 0.22);
   const personBoxes: [number, number, number, number][] = preds
     .filter((p) => p.class === "person")
     .map((p) => p.bbox as [number, number, number, number]);
@@ -63,8 +65,8 @@ export async function detectFrame(
   if (withFaces && faceLoaded) {
     try {
       const opts = new faceapi.TinyFaceDetectorOptions({
-        inputSize: 320,
-        scoreThreshold: 0.5,
+        inputSize: 416,
+        scoreThreshold: 0.35,
       });
       const results = await faceapi
         .detectAllFaces(source as any, opts)
