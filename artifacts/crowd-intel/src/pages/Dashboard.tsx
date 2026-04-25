@@ -403,19 +403,21 @@ export default function Dashboard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Approximate, AREA-BASED crowd capacity for the current scene.
+  // Approximate the MAX CAPACITY of the place based on its physical area.
   //
-  // Idea: divide the usable frame area by the footprint of one standing
-  // person, then apply a packing factor (people stand closer than their
-  // bounding boxes). The footprint is calibrated from the scene itself:
+  // Steps:
+  //   1. Convert the on-screen frame from pixels into real-world metres.
+  //      Without external scale info, a person's height is the cheapest
+  //      ruler (an adult is ~1.7 m). If people are visible, use the average
+  //      detected bbox height; otherwise assume a typical mid-shot where a
+  //      person fills ~30% of the frame height.
+  //   2. Compute the visible floor area in m² (very approximate — the camera
+  //      is treated as a flat orthographic view of the floor).
+  //   3. Multiply the usable portion of that area by a standard standing-
+  //      crowd density to get the max number of people the place can hold.
   //
-  //   • If people are visible, take the average detected bbox area — this
-  //     gives a true pixels-per-person scale for THIS shot.
-  //   • Otherwise assume a typical mid-distance camera shot where a person
-  //     is roughly 30% of the frame height tall × 12% wide.
-  //
-  // The result is intentionally approximate — the user can fine-tune with
-  // the number input.
+  // The result is intentionally approximate — the user can fine-tune it
+  // with the number input.
   function autoCalcCapacity() {
     const v = videoRef.current;
     const img = imageRef.current;
@@ -427,33 +429,40 @@ export default function Dashboard({
       return;
     }
 
-    const USABLE_FRACTION = 0.85; // ignore edges / non-walkable area
-    const PACKING_FACTOR = 1.4;   // people pack ~40% closer than bbox
+    const PERSON_HEIGHT_M = 1.7;     // average adult height (metres)
+    const STANDING_DENSITY = 2.5;    // people per m² — comfortable standing crowd
+    const USABLE_FRACTION = 0.7;     // discount edges / obstacles / dead space
 
     const boxes = lastBoxesRef.current;
-    let personArea: number;
+    let pxPerMetre: number;
     let basis: string;
 
     if (boxes.length > 0) {
-      let total = 0;
-      for (const b of boxes) total += b[2] * b[3];
-      personArea = total / boxes.length;
-      basis = `calibrated from ${boxes.length} detected ${
+      // Use the average detected person height as a real-world ruler.
+      let totalH = 0;
+      for (const b of boxes) totalH += b[3];
+      const avgPxHeight = totalH / boxes.length;
+      pxPerMetre = avgPxHeight / PERSON_HEIGHT_M;
+      basis = `scaled from ${boxes.length} detected ${
         boxes.length === 1 ? "person" : "people"
       }`;
     } else {
-      // No people in view yet — fall back to a frame-geometry estimate.
-      // A typical mid-distance shot has a person ~30% frame-height tall.
-      personArea = h * 0.3 * (h * 0.12);
-      basis = `area-only estimate from ${w}×${h} frame`;
+      // No reference in view — assume a mid-shot where a 1.7 m person is
+      // roughly 30% of the frame height.
+      pxPerMetre = (h * 0.3) / PERSON_HEIGHT_M;
+      basis = "mid-shot assumption (no people in view)";
     }
 
-    const usableArea = w * h * USABLE_FRACTION;
-    const raw = (usableArea * PACKING_FACTOR) / Math.max(1, personArea);
+    const sceneWidthM = w / pxPerMetre;
+    const sceneHeightM = h / pxPerMetre;
+    const sceneAreaM2 = sceneWidthM * sceneHeightM;
+    const usableM2 = sceneAreaM2 * USABLE_FRACTION;
+    const raw = usableM2 * STANDING_DENSITY;
     const estimated = Math.max(2, Math.min(5000, Math.round(raw)));
+
     setCapacity(estimated);
     setAutoHint(
-      `Auto-set to ${estimated} (area-based, ${basis}). Tweak the number if it looks off.`,
+      `Max capacity ${estimated} — ~${usableM2.toFixed(1)} m² usable @ ${STANDING_DENSITY} people/m² (${basis}). Tweak if it looks off.`,
     );
     pushAlert(`Capacity auto-set to ${estimated}`, "info");
   }
