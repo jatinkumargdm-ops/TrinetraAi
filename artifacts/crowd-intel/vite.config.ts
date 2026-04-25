@@ -54,15 +54,6 @@ export default defineConfig({
     fs: {
       strict: true,
     },
-    proxy: {
-      // NOTE: Replit's edge proxy reserves "/api/*" and returns 502 before
-      // hitting Vite, so we use "/_api/*" for the backend instead.
-      "/_api": {
-        target: `http://127.0.0.1:${process.env.AUTH_PORT ?? "3001"}`,
-        changeOrigin: false,
-        secure: false,
-      },
-    },
   },
   preview: {
     port,
