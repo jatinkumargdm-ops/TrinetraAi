@@ -2,24 +2,24 @@
 @import "tailwindcss";
 
 @theme inline {
-  /* Marauder's Map palette */
-  --color-bg: #f4e4bc;            /* parchment */
+ 
+  --color-bg: #f4e4bc;    
   --color-bg-2: #ecd9a8;
-  --color-panel: #fbf3dd;          /* old paper */
+  --color-panel: #fbf3dd;  
   --color-panel-2: #f3e3b8;
-  --color-border: #b59868;         /* burnt edge */
+  --color-border: #b59868;  
   --color-border-soft: #d6c08a;
-  --color-ink: #2b1d0e;            /* ink charcoal */
+  --color-ink: #2b1d0e;       
   --color-ink-soft: #5a4226;
   --color-muted: #8a6f44;
-  --color-brand: #740001;          /* gryffindor maroon */
+  --color-brand: #740001;          
   --color-brand-2: #a32a2a;
   --color-brand-soft: #efd6c1;
-  --color-cyan: #b8860b;            /* candle gold */
-  --color-good: #1f6e3a;            /* slytherin sage */
-  --color-warn: #c9821f;            /* candle */
-  --color-bad: #b03020;             /* dark red */
-  --color-crit: #5a0a0a;            /* deep blood */
+  --color-cyan: #b8860b;      
+  --color-good: #1f6e3a;         
+  --color-warn: #c9821f; 
+  --color-bad: #b03020;            
+  --color-crit: #5a0a0a;           
 
   --shadow-card: 0 1px 2px rgba(43, 29, 14, 0.08), 0 6px 18px rgba(43, 29, 14, 0.10);
 }
@@ -46,7 +46,7 @@ body {
     radial-gradient(900px 500px at 8% -8%, rgba(116, 0, 1, 0.10), transparent 60%),
     radial-gradient(900px 500px at 100% 0%, rgba(184, 134, 11, 0.13), transparent 60%),
     radial-gradient(circle at 50% 100%, rgba(43, 29, 14, 0.08), transparent 60%),
-    /* parchment fibre noise */
+  
     repeating-linear-gradient(45deg, rgba(139, 109, 64, 0.04) 0 2px, transparent 2px 5px),
     repeating-linear-gradient(-45deg, rgba(116, 80, 30, 0.03) 0 2px, transparent 2px 6px),
     linear-gradient(180deg, #f4e4bc 0%, #ecd6a3 100%);
@@ -60,7 +60,6 @@ button { cursor: pointer; font-family: inherit; }
 ::-webkit-scrollbar-thumb { background: #c5a973; border-radius: 6px; }
 ::-webkit-scrollbar-thumb:hover { background: #a48655; }
 
-/* keep names; recolour */
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.55; transform: scale(0.8); }
@@ -81,7 +80,7 @@ button { cursor: pointer; font-family: inherit; }
   100% { background-position: 0% 50%; }
 }
 
-/* Lumos breathing glow for the video stage */
+
 @keyframes lumos-glow {
   0%, 100% {
     box-shadow:
@@ -127,7 +126,6 @@ button { cursor: pointer; font-family: inherit; }
   color: transparent;
 }
 
-/* Parchment card with deckle edge */
 .card {
   background:
     radial-gradient(circle at 0 0, rgba(116, 80, 30, 0.10), transparent 30%),
@@ -187,10 +185,7 @@ button { cursor: pointer; font-family: inherit; }
   font-family: 'Cinzel', serif;
 }
 
-/* ───────────────────────────────────────────────────────────────────
-   NOX — Dark "midnight in the common room" theme
-   Triggered by [data-theme="dark"] on <html>
-   ─────────────────────────────────────────────────────────────────── */
+
 [data-theme="dark"] {
   color-scheme: dark;
 }
@@ -213,7 +208,7 @@ button { cursor: pointer; font-family: inherit; }
 [data-theme="dark"] ::-webkit-scrollbar-thumb { background: #5a4226; }
 [data-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: #8a6f44; }
 
-/* Card → dark wood / aged parchment */
+
 [data-theme="dark"] .card {
   background:
     radial-gradient(circle at 0 0, rgba(212, 168, 67, 0.10), transparent 30%),
@@ -245,12 +240,12 @@ button { cursor: pointer; font-family: inherit; }
   box-shadow: 0 10px 24px rgba(212, 168, 67, 0.45) !important;
 }
 
-/* Lumos glow — keep, slightly stronger gold against dark */
+
 [data-theme="dark"] .lumos {
   border: 1px solid rgba(212, 168, 67, 0.55) !important;
 }
 
-/* Tailwind arbitrary-value class overrides (parchment → midnight wood) */
+
 [data-theme="dark"] .bg-\[\#f4e4bc\] { background-color: #2a1c10 !important; }
 [data-theme="dark"] .bg-\[\#fbf3dd\] { background-color: #2a1c10 !important; }
 [data-theme="dark"] .bg-\[\#fbf3dd\]\/70 { background-color: rgba(26, 18, 10, 0.85) !important; }
@@ -271,6 +266,4 @@ button { cursor: pointer; font-family: inherit; }
 [data-theme="dark"] .border-\[\#b59868\] { border-color: #5a4226 !important; }
 [data-theme="dark"] .border-\[\#740001\] { border-color: #d4a843 !important; }
 
-/* History chart strokes/fills referenced by Tailwind hex are flipped above.
-   Inline-style hex values inside Dashboard.tsx canvas drawings stay as-is —
-   they paint into <canvas>, not the DOM tree, and reflect the snapshot brand. */
+

@@ -25,11 +25,27 @@ A short, friendly guide. Nothing technical to set up beyond Node.
 
 Open the VS Code terminal (**Ctrl + `** — the backtick key, top-left under Esc) and run:
 
+Important: the terminal should say **PowerShell**, not **cmd**. If VS Code opens `cmd`, click the small dropdown on the terminal tab and switch to **PowerShell** first.
+
+If you want to stay in **cmd**, `pnpm install` works there too. Only the cleanup commands later are different.
+
 ```powershell
 pnpm install
 ```
 
 This downloads everything the app needs. It takes about 1–3 minutes the first time.
+
+If pnpm shows a message like `Ignored build scripts: ... Run "pnpm approve-builds"`, run this once too:
+
+```powershell
+pnpm approve-builds
+```
+
+When it opens the picker, approve the package(s) it shows, then run:
+
+```powershell
+pnpm install
+```
 
 ## 4. Start TRINETRA AI
 
@@ -39,13 +55,44 @@ In the same terminal:
 pnpm --filter @workspace/crowd-intel dev
 ```
 
+Do not run `pnpm dev` at the project root. This repo's app lives inside the `@workspace/crowd-intel` workspace, so the command above is the correct one.
+
 You'll see a line like:
 
 ```
-  ➜  Local:   http://localhost:22337/
+  ➜  Local:   http://localhost:22338/
 ```
 
 Hold **Ctrl** and click that link, or just open it in Chrome / Edge.
+
+## 4A. If you get `Cannot find native binding`
+
+On some Windows PCs, pnpm can skip an optional native package used by Tailwind/Vite. If you see an error like `Cannot find native binding` or `failed to load config from ... vite.config.ts`, run these commands in the project root:
+
+```powershell
+Remove-Item -Recurse -Force node_modules
+pnpm approve-builds
+pnpm install
+pnpm --filter @workspace/crowd-intel dev
+```
+
+If you are using **cmd** instead of PowerShell, use this version:
+
+```cmd
+rmdir /s /q node_modules
+pnpm approve-builds
+pnpm install
+pnpm --filter @workspace/crowd-intel dev
+```
+
+Notes:
+
+- These recovery commands are for **PowerShell**. If your terminal says `cmd`, switch it to PowerShell first.
+- For `cmd`, use `rmdir /s /q node_modules` instead of `Remove-Item -Recurse -Force node_modules`.
+- If `pnpm approve-builds` opens a list, select and approve everything it asks for.
+- If PowerShell says a file is in use, close the dev server / VS Code terminal first, then run the commands again.
+- If it still fails after that, delete `pnpm-lock.yaml` too, then run `pnpm install` again.
+- This fix is safe: it only reinstalls the project's dependencies.
 
 ## 5. Use it
 
