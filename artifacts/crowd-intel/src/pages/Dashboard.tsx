@@ -127,6 +127,10 @@ export default function Dashboard({
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [capacity, setCapacity] = useState(10);
   const [autoHint, setAutoHint] = useState<string | null>(null);
+  const [showAreaCalc, setShowAreaCalc] = useState(false);
+  const [placeLengthM, setPlaceLengthM] = useState(10);
+  const [placeWidthM, setPlaceWidthM] = useState(10);
+  const [placeDensity, setPlaceDensity] = useState(2.5); // people / m²
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(false);
   const [flow, setFlow] = useState({
@@ -403,68 +407,35 @@ export default function Dashboard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Approximate the MAX CAPACITY of the place based on its physical area.
+  // Compute the MAX CAPACITY of the place from its real physical area.
   //
-  // Steps:
-  //   1. Convert the on-screen frame from pixels into real-world metres.
-  //      Without external scale info, a person's height is the cheapest
-  //      ruler (an adult is ~1.7 m). If people are visible, use the average
-  //      detected bbox height; otherwise assume a typical mid-shot where a
-  //      person fills ~30% of the frame height.
-  //   2. Compute the visible floor area in m² (very approximate — the camera
-  //      is treated as a flat orthographic view of the floor).
-  //   3. Multiply the usable portion of that area by a standard standing-
-  //      crowd density to get the max number of people the place can hold.
+  //   capacity = length(m) × width(m) × usable_fraction × density(people/m²)
   //
-  // The result is intentionally approximate — the user can fine-tune it
-  // with the number input.
-  function autoCalcCapacity() {
-    const v = videoRef.current;
-    const img = imageRef.current;
-    const w = v?.videoWidth || img?.naturalWidth || 0;
-    const h = v?.videoHeight || img?.naturalHeight || 0;
+  // The user enters the length and width of the venue in metres and picks a
+  // crowd density. We discount 30% of the floor for walls / obstacles /
+  // walking lanes, then multiply by people-per-m² to get the cap.
+  //
+  // Standard densities (Keith Still / NFPA):
+  //   • Comfortable seated / open: 1.0 person / m²
+  //   • Comfortable standing:      2.5 people / m²
+  //   • Packed crowd (concert):    4.0 people / m²
+  function applyAreaCapacity() {
+    const length = Math.max(0.5, placeLengthM);
+    const width = Math.max(0.5, placeWidthM);
+    const density = Math.max(0.5, placeDensity);
+    const USABLE_FRACTION = 0.7;
 
-    if (!w || !h) {
-      setAutoHint("Can't estimate yet — start a video or pick an image first.");
-      return;
-    }
-
-    const PERSON_HEIGHT_M = 1.7;     // average adult height (metres)
-    const STANDING_DENSITY = 2.5;    // people per m² — comfortable standing crowd
-    const USABLE_FRACTION = 0.7;     // discount edges / obstacles / dead space
-
-    const boxes = lastBoxesRef.current;
-    let pxPerMetre: number;
-    let basis: string;
-
-    if (boxes.length > 0) {
-      // Use the average detected person height as a real-world ruler.
-      let totalH = 0;
-      for (const b of boxes) totalH += b[3];
-      const avgPxHeight = totalH / boxes.length;
-      pxPerMetre = avgPxHeight / PERSON_HEIGHT_M;
-      basis = `scaled from ${boxes.length} detected ${
-        boxes.length === 1 ? "person" : "people"
-      }`;
-    } else {
-      // No reference in view — assume a mid-shot where a 1.7 m person is
-      // roughly 30% of the frame height.
-      pxPerMetre = (h * 0.3) / PERSON_HEIGHT_M;
-      basis = "mid-shot assumption (no people in view)";
-    }
-
-    const sceneWidthM = w / pxPerMetre;
-    const sceneHeightM = h / pxPerMetre;
-    const sceneAreaM2 = sceneWidthM * sceneHeightM;
-    const usableM2 = sceneAreaM2 * USABLE_FRACTION;
-    const raw = usableM2 * STANDING_DENSITY;
+    const totalArea = length * width;
+    const usableArea = totalArea * USABLE_FRACTION;
+    const raw = usableArea * density;
     const estimated = Math.max(2, Math.min(5000, Math.round(raw)));
 
     setCapacity(estimated);
     setAutoHint(
-      `Max capacity ${estimated} — ~${usableM2.toFixed(1)} m² usable @ ${STANDING_DENSITY} people/m² (${basis}). Tweak if it looks off.`,
+      `Max capacity ${estimated} — ${length.toFixed(1)}m × ${width.toFixed(1)}m = ${totalArea.toFixed(1)} m² (${usableArea.toFixed(1)} m² usable @ ${density} people/m²).`,
     );
-    pushAlert(`Capacity auto-set to ${estimated}`, "info");
+    pushAlert(`Capacity set to ${estimated} from area`, "info");
+    setShowAreaCalc(false);
   }
 
   function ensureHeatGrid() {
@@ -1150,11 +1121,11 @@ export default function Dashboard({
                     <span className="text-[12px] text-[#8a6f44]">people</span>
                     <button
                       type="button"
-                      onClick={autoCalcCapacity}
+                      onClick={() => setShowAreaCalc((s) => !s)}
                       className="text-[11px] font-semibold uppercase tracking-wide px-2.5 py-1 rounded-md border border-[#b59868] text-[#5a4226] hover:bg-[#efd6c1] transition"
-                      title="Estimate capacity from the current scene using detected people and frame size"
+                      title="Calculate max capacity from the place's length × width"
                     >
-                      Auto from scene
+                      {showAreaCalc ? "Close" : "Auto from area"}
                     </button>
                   </div>
                 </div>
@@ -1166,7 +1137,69 @@ export default function Dashboard({
                   onChange={(e) => setCapacity(Number(e.target.value))}
                   className="w-full accent-[#740001]"
                 />
-                {autoHint && (
+                {showAreaCalc && (
+                  <div className="mt-3 p-3 rounded-md border border-[#b59868] bg-[#fffaf0]">
+                    <div className="text-[11px] font-semibold text-[#5a4226] uppercase tracking-wide mb-2">
+                      Calculate max capacity from area
+                    </div>
+                    <div className="flex flex-wrap items-end gap-3">
+                      <label className="flex flex-col gap-1">
+                        <span className="text-[11px] text-[#8a6f44]">Length (m)</span>
+                        <input
+                          type="number"
+                          min={0.5}
+                          max={500}
+                          step={0.5}
+                          value={placeLengthM}
+                          onChange={(e) => {
+                            const n = Number(e.target.value);
+                            if (Number.isFinite(n) && n > 0) setPlaceLengthM(n);
+                          }}
+                          className="w-24 px-2 py-1 text-[12px] rounded-md border border-[#b59868] bg-white text-[#2b1d0e] focus:outline-none focus:border-[#740001] focus:ring-2 focus:ring-[#740001]/20"
+                        />
+                      </label>
+                      <span className="pb-1.5 text-[#8a6f44]">×</span>
+                      <label className="flex flex-col gap-1">
+                        <span className="text-[11px] text-[#8a6f44]">Width (m)</span>
+                        <input
+                          type="number"
+                          min={0.5}
+                          max={500}
+                          step={0.5}
+                          value={placeWidthM}
+                          onChange={(e) => {
+                            const n = Number(e.target.value);
+                            if (Number.isFinite(n) && n > 0) setPlaceWidthM(n);
+                          }}
+                          className="w-24 px-2 py-1 text-[12px] rounded-md border border-[#b59868] bg-white text-[#2b1d0e] focus:outline-none focus:border-[#740001] focus:ring-2 focus:ring-[#740001]/20"
+                        />
+                      </label>
+                      <label className="flex flex-col gap-1">
+                        <span className="text-[11px] text-[#8a6f44]">Crowd type</span>
+                        <select
+                          value={placeDensity}
+                          onChange={(e) => setPlaceDensity(Number(e.target.value))}
+                          className="px-2 py-1 text-[12px] rounded-md border border-[#b59868] bg-white text-[#2b1d0e] focus:outline-none focus:border-[#740001] focus:ring-2 focus:ring-[#740001]/20"
+                        >
+                          <option value={1}>Comfortable / seated (1 / m²)</option>
+                          <option value={2.5}>Standing (2.5 / m²)</option>
+                          <option value={4}>Packed / concert (4 / m²)</option>
+                        </select>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={applyAreaCapacity}
+                        className="text-[11px] font-semibold uppercase tracking-wide px-3 py-1.5 rounded-md bg-[#740001] text-white hover:bg-[#5a0001] transition"
+                      >
+                        Apply
+                      </button>
+                    </div>
+                    <div className="mt-2 text-[11px] text-[#8a6f44]">
+                      Total area {(placeLengthM * placeWidthM).toFixed(1)} m² · ~30% discounted for walls / walkways.
+                    </div>
+                  </div>
+                )}
+                {autoHint && !showAreaCalc && (
                   <div className="mt-1 text-[11px] text-[#8a6f44] italic">
                     {autoHint}
                   </div>
