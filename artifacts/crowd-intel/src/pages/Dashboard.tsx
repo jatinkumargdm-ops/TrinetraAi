@@ -403,15 +403,19 @@ export default function Dashboard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Estimate a reasonable crowd capacity for the current scene.
+  // Approximate, AREA-BASED crowd capacity for the current scene.
   //
-  // Strategy:
-  // 1. If we have at least one detected person, use their average bounding-box
-  //    area as the "footprint" of one person in this scene. Capacity is then
-  //    the usable frame area divided by that footprint, scaled by a crowding
-  //    factor (people pack tighter than their bounding boxes).
-  // 2. If nothing is detected yet, fall back to a resolution-based estimate
-  //    (assume an "average" person occupies ~6% of the frame).
+  // Idea: divide the usable frame area by the footprint of one standing
+  // person, then apply a packing factor (people stand closer than their
+  // bounding boxes). The footprint is calibrated from the scene itself:
+  //
+  //   • If people are visible, take the average detected bbox area — this
+  //     gives a true pixels-per-person scale for THIS shot.
+  //   • Otherwise assume a typical mid-distance camera shot where a person
+  //     is roughly 30% of the frame height tall × 12% wide.
+  //
+  // The result is intentionally approximate — the user can fine-tune with
+  // the number input.
   function autoCalcCapacity() {
     const v = videoRef.current;
     const img = imageRef.current;
@@ -419,34 +423,37 @@ export default function Dashboard({
     const h = v?.videoHeight || img?.naturalHeight || 0;
 
     if (!w || !h) {
-      setAutoHint("Can't auto-detect yet — start a video or pick an image first.");
+      setAutoHint("Can't estimate yet — start a video or pick an image first.");
       return;
     }
 
-    const frameArea = w * h;
-    const usableArea = frameArea * 0.85; // ignore edges / non-walkable area
-    const crowdingFactor = 1.4; // people stand ~40% closer than their bbox
+    const USABLE_FRACTION = 0.85; // ignore edges / non-walkable area
+    const PACKING_FACTOR = 1.4;   // people pack ~40% closer than bbox
 
     const boxes = lastBoxesRef.current;
-    let perPersonArea: number;
+    let personArea: number;
     let basis: string;
 
     if (boxes.length > 0) {
       let total = 0;
       for (const b of boxes) total += b[2] * b[3];
-      perPersonArea = total / boxes.length;
-      basis = `${boxes.length} ${boxes.length === 1 ? "person" : "people"} in view`;
+      personArea = total / boxes.length;
+      basis = `calibrated from ${boxes.length} detected ${
+        boxes.length === 1 ? "person" : "people"
+      }`;
     } else {
-      // No detections — assume a typical person occupies ~6% of the frame
-      perPersonArea = frameArea * 0.06;
-      basis = "no people in view yet (resolution-based estimate)";
+      // No people in view yet — fall back to a frame-geometry estimate.
+      // A typical mid-distance shot has a person ~30% frame-height tall.
+      personArea = h * 0.3 * (h * 0.12);
+      basis = `area-only estimate from ${w}×${h} frame`;
     }
 
-    const raw = (usableArea * crowdingFactor) / Math.max(1, perPersonArea);
+    const usableArea = w * h * USABLE_FRACTION;
+    const raw = (usableArea * PACKING_FACTOR) / Math.max(1, personArea);
     const estimated = Math.max(2, Math.min(5000, Math.round(raw)));
     setCapacity(estimated);
     setAutoHint(
-      `Auto-set to ${estimated} from ${basis}. Tweak the number if it looks off.`,
+      `Auto-set to ${estimated} (area-based, ${basis}). Tweak the number if it looks off.`,
     );
     pushAlert(`Capacity auto-set to ${estimated}`, "info");
   }
