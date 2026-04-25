@@ -3,10 +3,11 @@ import { ThemeToggle } from "../components/ThemeToggle";
 
 export type SourceConfig =
   | { kind: "webcam" }
+  | { kind: "phone" }
   | { kind: "video"; file: File }
   | { kind: "image"; file: File };
 
-type CardKey = "webcam" | "video" | "image";
+type CardKey = "webcam" | "phone" | "video" | "image";
 
 const CARDS: {
   key: CardKey;
@@ -25,6 +26,15 @@ const CARDS: {
     body: "The Marauder's Eye watches every footstep through the lens of your wand.",
     cta: "Cast Lumos",
     icon: WandIcon,
+  },
+  {
+    key: "phone",
+    spell: "Floo Link",
+    title: "Send Your Phone's Eye",
+    subtitle: "Stream live video from your phone camera.",
+    body: "Scan a QR code on your phone and the Eye will see whatever your phone sees — instantly, peer-to-peer.",
+    cta: "Open Floo Link",
+    icon: PhoneIcon,
   },
   {
     key: "video",
@@ -72,6 +82,7 @@ export default function Landing({
   const triggerActive = () => {
     const card = CARDS[active];
     if (card.key === "webcam") start({ kind: "webcam" });
+    else if (card.key === "phone") start({ kind: "phone" });
     else if (card.key === "video") videoFileRef.current?.click();
     else imageFileRef.current?.click();
   };
@@ -367,6 +378,17 @@ function WandIcon() {
       <path d="M16 8l3-3" />
       <circle cx="19" cy="5" r="1.6" fill="#b8860b" stroke="#b8860b" />
       <path d="M19 5l1.5-1.5M19 5l1.5 1.5M19 5l-1.5-1.5M19 5l-1.5 1.5" stroke="#b8860b" strokeWidth="1" />
+    </svg>
+  );
+}
+function PhoneIcon() {
+  return (
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#2b1d0e" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="6" y="2.5" width="12" height="19" rx="2.5" />
+      <circle cx="12" cy="18" r="0.9" fill="#2b1d0e" />
+      <path d="M9 5h6" />
+      <path d="M14.5 9.2a3 3 0 1 1-3.5-2.95" />
+      <path d="M14.4 7.4l1.2-.8" stroke="#b8860b" />
     </svg>
   );
 }

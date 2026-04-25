@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import QRCode from "qrcode";
 import {
   detectFrame,
   loadModels,
@@ -6,6 +7,7 @@ import {
 } from "../lib/detection";
 import { CentroidTracker, flowDirection, type Track } from "../lib/tracker";
 import { beepCritical, beepWarn, unlockAudio } from "../lib/audio";
+import { createReceiver, type ReceiverHandle } from "../lib/phoneLink";
 import { Brand, type SourceConfig } from "./Landing";
 import { ThemeToggle } from "../components/ThemeToggle";
 
@@ -100,8 +102,18 @@ export default function Dashboard({
   const frameCountRef = useRef(0);
 
   const [phase, setPhase] = useState<
-    "loading" | "starting" | "ready" | "error" | "no_camera"
+    | "loading"
+    | "starting"
+    | "awaiting_phone"
+    | "ready"
+    | "error"
+    | "no_camera"
   >("loading");
+  const [phoneLink, setPhoneLink] = useState<{
+    peerId: string;
+    url: string;
+    qrDataUrl: string;
+  } | null>(null);
   const [loadingMsg, setLoadingMsg] = useState("Warming up");
   const [errorMsg, setErrorMsg] = useState("");
   const [count, setCount] = useState(0);
@@ -167,6 +179,28 @@ export default function Dashboard({
     let stream: MediaStream | null = null;
     let imageObjUrl: string | null = null;
     let videoObjUrl: string | null = null;
+    let receiver: ReceiverHandle | null = null;
+
+    const startWithStream = async (incoming: MediaStream) => {
+      if (cancelled) {
+        incoming.getTracks().forEach((t) => t.stop());
+        return;
+      }
+      stream = incoming;
+      const v = videoRef.current!;
+      v.srcObject = incoming;
+      try {
+        await v.play();
+      } catch {
+        // Autoplay rejection is fine, user interaction will resume.
+      }
+      await waitForVideoReady(v);
+      if (cancelled) return;
+      syncCanvas(v.videoWidth, v.videoHeight);
+      setPhase("ready");
+      detectingRef.current = true;
+      loop();
+    };
 
     (async () => {
       try {
@@ -194,6 +228,43 @@ export default function Dashboard({
           pushAlert("Webcam connected", "info");
           detectingRef.current = true;
           loop();
+        } else if (source.kind === "phone") {
+          setPhase("awaiting_phone");
+          setLoadingMsg("Waiting for phone");
+          receiver = createReceiver({
+            onReady: async (peerId) => {
+              if (cancelled) return;
+              const url = `${window.location.origin}${window.location.pathname}?broadcast=${encodeURIComponent(peerId)}`;
+              try {
+                const qrDataUrl = await QRCode.toDataURL(url, {
+                  width: 360,
+                  margin: 1,
+                  color: { dark: "#2b1d0e", light: "#fbf3dd" },
+                });
+                if (cancelled) return;
+                setPhoneLink({ peerId, url, qrDataUrl });
+              } catch {
+                if (cancelled) return;
+                setPhoneLink({ peerId, url, qrDataUrl: "" });
+              }
+            },
+            onPeerConnect: () => {
+              if (cancelled) return;
+              pushAlert("Phone camera connected", "info");
+            },
+            onStream: (s) => {
+              void startWithStream(s);
+            },
+            onPeerDisconnect: () => {
+              if (cancelled) return;
+              pushAlert("Phone camera disconnected", "warn");
+            },
+            onError: (msg) => {
+              if (cancelled) return;
+              setErrorMsg(msg);
+              setPhase("error");
+            },
+          });
         } else if (source.kind === "video") {
           videoObjUrl = URL.createObjectURL(source.file);
           const v = videoRef.current!;
@@ -243,6 +314,12 @@ export default function Dashboard({
       if (stream) stream.getTracks().forEach((t) => t.stop());
       if (imageObjUrl) URL.revokeObjectURL(imageObjUrl);
       if (videoObjUrl) URL.revokeObjectURL(videoObjUrl);
+      if (receiver) {
+        try {
+          receiver.destroy();
+        } catch {}
+      }
+      setPhoneLink(null);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [source]);
@@ -851,13 +928,15 @@ export default function Dashboard({
             ? "Preparing"
             : phase === "starting"
               ? "Connecting"
-              : phase === "ready"
-                ? paused
-                  ? "Paused"
-                  : "Live"
-                : phase === "no_camera"
-                  ? "Camera blocked"
-                  : "Issue"
+              : phase === "awaiting_phone"
+                ? "Awaiting phone"
+                : phase === "ready"
+                  ? paused
+                    ? "Paused"
+                    : "Live"
+                  : phase === "no_camera"
+                    ? "Camera blocked"
+                    : "Issue"
         }
         statusColor={
           phase === "ready"
@@ -866,7 +945,9 @@ export default function Dashboard({
               : "#10b981"
             : phase === "no_camera" || phase === "error"
               ? "#ef4444"
-              : "#740001"
+              : phase === "awaiting_phone"
+                ? "#b8860b"
+                : "#740001"
         }
       />
 
@@ -888,9 +969,11 @@ export default function Dashboard({
                 <div className="font-semibold text-[#2b1d0e]">
                   {source.kind === "webcam"
                     ? "Live camera"
-                    : source.kind === "video"
-                      ? `Video · ${source.file.name}`
-                      : `Photo · ${source.file.name}`}
+                    : source.kind === "phone"
+                      ? "Phone camera (Floo Link)"
+                      : source.kind === "video"
+                        ? `Video · ${source.file.name}`
+                        : `Photo · ${source.file.name}`}
                 </div>
               </div>
               <SafetyBadge tier={tier} color={tierColor} />
@@ -942,6 +1025,12 @@ export default function Dashboard({
 
               {(phase === "loading" || phase === "starting") && (
                 <BootOverlay msg={loadingMsg} />
+              )}
+              {phase === "awaiting_phone" && (
+                <PhoneLinkOverlay
+                  link={phoneLink}
+                  onCancel={handleChangeSource}
+                />
               )}
               {phase === "no_camera" && (
                 <ErrorOverlay
@@ -1604,6 +1693,76 @@ function BootOverlay({ msg }: { msg: string }) {
       />
       <div className="mt-4 text-[14px] font-semibold tracking-wide">{msg}…</div>
       <div className="mt-1 text-[12px] text-white/60">One moment please</div>
+    </div>
+  );
+}
+
+function PhoneLinkOverlay({
+  link,
+  onCancel,
+}: {
+  link: { peerId: string; url: string; qrDataUrl: string } | null;
+  onCancel: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    if (!link) return;
+    try {
+      await navigator.clipboard.writeText(link.url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      // ignore
+    }
+  };
+
+  return (
+    <div className="absolute inset-0 bg-[#2b1d0e]/95 flex flex-col items-center justify-center text-white p-5 text-center">
+      <div className="font-display font-bold text-[20px] mb-1">
+        Scan with your phone
+      </div>
+      <div className="text-[12px] text-white/70 max-w-sm mb-4">
+        Open your phone's camera and point it at the code. Allow camera access
+        on the phone, then keep this tab open.
+      </div>
+
+      {link?.qrDataUrl ? (
+        <img
+          src={link.qrDataUrl}
+          alt="Scan to stream from phone"
+          className="w-[220px] h-[220px] rounded-md bg-[#fbf3dd] p-2 shadow-md"
+        />
+      ) : (
+        <div className="w-[220px] h-[220px] rounded-md bg-[#fbf3dd]/30 flex items-center justify-center">
+          <div
+            className="w-10 h-10 rounded-full border-2 border-white/30 border-t-white"
+            style={{ animation: "spin 0.9s linear infinite" }}
+          />
+        </div>
+      )}
+
+      {link ? (
+        <div className="mt-4 flex flex-col items-center gap-2 w-full max-w-md">
+          <div className="text-[11px] text-white/60 break-all px-3">
+            {link.url}
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <button onClick={copy} className="btn btn-primary">
+              {copied ? "Link copied" : "Copy link"}
+            </button>
+            <button onClick={onCancel} className="btn">
+              Cancel
+            </button>
+          </div>
+          <div className="text-[11px] text-white/50 mt-1">
+            Waiting for phone to connect…
+          </div>
+        </div>
+      ) : (
+        <div className="mt-3 text-[12px] text-white/60">
+          Setting up secure link…
+        </div>
+      )}
     </div>
   );
 }
