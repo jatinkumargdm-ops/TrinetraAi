@@ -1705,35 +1705,94 @@ function PhoneLinkOverlay({
   onCancel: () => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
+  const canNativeShare =
+    typeof navigator !== "undefined" &&
+    typeof (navigator as Navigator & { share?: unknown }).share === "function";
+
   const copy = async () => {
     if (!link) return;
     try {
       await navigator.clipboard.writeText(link.url);
       setCopied(true);
+      setShareError(null);
       setTimeout(() => setCopied(false), 1800);
     } catch {
-      // ignore
+      setShareError("Couldn't copy. Long-press the link to copy it manually.");
     }
   };
 
+  const share = async () => {
+    if (!link) return;
+    setShareError(null);
+    if (canNativeShare) {
+      try {
+        await (
+          navigator as Navigator & {
+            share: (data: ShareData) => Promise<void>;
+          }
+        ).share({
+          title: "TRINETRA · Floo Link",
+          text: "Open this on your phone to stream its camera to my TRINETRA dashboard.",
+          url: link.url,
+        });
+        return;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        // User cancel is not an error worth showing.
+        if (!/abort|cancel/i.test(msg)) {
+          setShareError(msg);
+        }
+        return;
+      }
+    }
+    // Fallback: copy to clipboard.
+    await copy();
+  };
+
+  const shareTargets = link
+    ? [
+        {
+          label: "WhatsApp",
+          href: `https://wa.me/?text=${encodeURIComponent(
+            `Open this on your phone to stream its camera to my TRINETRA dashboard: ${link.url}`,
+          )}`,
+        },
+        {
+          label: "Email",
+          href: `mailto:?subject=${encodeURIComponent(
+            "TRINETRA · Floo Link",
+          )}&body=${encodeURIComponent(
+            `Open this on your phone to stream its camera to my TRINETRA dashboard:\n\n${link.url}`,
+          )}`,
+        },
+        {
+          label: "SMS",
+          href: `sms:?&body=${encodeURIComponent(
+            `Open this on your phone to stream its camera to my TRINETRA dashboard: ${link.url}`,
+          )}`,
+        },
+      ]
+    : [];
+
   return (
-    <div className="absolute inset-0 bg-[#2b1d0e]/95 flex flex-col items-center justify-center text-white p-5 text-center">
+    <div className="absolute inset-0 bg-[#2b1d0e]/95 flex flex-col items-center justify-center text-white p-5 text-center overflow-y-auto">
       <div className="font-display font-bold text-[20px] mb-1">
         Scan with your phone
       </div>
       <div className="text-[12px] text-white/70 max-w-sm mb-4">
-        Open your phone's camera and point it at the code. Allow camera access
-        on the phone, then keep this tab open.
+        Open your phone's camera and point it at the code, or send the link to
+        any phone with the buttons below. Keep this tab open while streaming.
       </div>
 
       {link?.qrDataUrl ? (
         <img
           src={link.qrDataUrl}
           alt="Scan to stream from phone"
-          className="w-[220px] h-[220px] rounded-md bg-[#fbf3dd] p-2 shadow-md"
+          className="w-[200px] h-[200px] rounded-md bg-[#fbf3dd] p-2 shadow-md"
         />
       ) : (
-        <div className="w-[220px] h-[220px] rounded-md bg-[#fbf3dd]/30 flex items-center justify-center">
+        <div className="w-[200px] h-[200px] rounded-md bg-[#fbf3dd]/30 flex items-center justify-center">
           <div
             className="w-10 h-10 rounded-full border-2 border-white/30 border-t-white"
             style={{ animation: "spin 0.9s linear infinite" }}
@@ -1742,18 +1801,50 @@ function PhoneLinkOverlay({
       )}
 
       {link ? (
-        <div className="mt-4 flex flex-col items-center gap-2 w-full max-w-md">
-          <div className="text-[11px] text-white/60 break-all px-3">
+        <div className="mt-4 flex flex-col items-center gap-3 w-full max-w-md">
+          <div
+            className="text-[11px] text-white/70 break-all px-3 py-2 rounded-md bg-white/5 border border-white/10 select-all"
+            onClick={(e) => {
+              const r = document.createRange();
+              r.selectNodeContents(e.currentTarget);
+              const sel = window.getSelection();
+              sel?.removeAllRanges();
+              sel?.addRange(r);
+            }}
+          >
             {link.url}
           </div>
+
           <div className="flex flex-wrap items-center justify-center gap-2">
-            <button onClick={copy} className="btn btn-primary">
+            <button onClick={share} className="btn btn-primary">
+              {canNativeShare ? "Share link" : "Share link (copy)"}
+            </button>
+            <button onClick={copy} className="btn">
               {copied ? "Link copied" : "Copy link"}
             </button>
             <button onClick={onCancel} className="btn">
               Cancel
             </button>
           </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            {shareTargets.map((t) => (
+              <a
+                key={t.label}
+                href={t.href}
+                target="_blank"
+                rel="noreferrer"
+                className="px-3 py-1.5 rounded-full text-[12px] font-medium border border-white/20 text-white/85 hover:bg-white/10 transition"
+              >
+                {t.label}
+              </a>
+            ))}
+          </div>
+
+          {shareError && (
+            <div className="text-[11px] text-[#fca5a5]">{shareError}</div>
+          )}
+
           <div className="text-[11px] text-white/50 mt-1">
             Waiting for phone to connect…
           </div>
