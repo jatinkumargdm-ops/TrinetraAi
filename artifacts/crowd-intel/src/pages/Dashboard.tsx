@@ -104,6 +104,8 @@ export default function Dashboard({
   const lastFallAlertRef = useRef<Record<number, number>>({});
   const facesRef = useRef<FaceInfo[]>([]);
   const frameCountRef = useRef(0);
+  // Latest detection boxes — used by "Auto" capacity estimator.
+  const lastBoxesRef = useRef<[number, number, number, number][]>([]);
 
   const [phase, setPhase] = useState<
     | "loading"
@@ -124,6 +126,7 @@ export default function Dashboard({
   const [history, setHistory] = useState<HistPoint[]>([]);
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [capacity, setCapacity] = useState(10);
+  const [autoHint, setAutoHint] = useState<string | null>(null);
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(false);
   const [flow, setFlow] = useState({
@@ -340,6 +343,7 @@ export default function Dashboard({
     if (!img) return;
     const det = await detectFrame(img, true);
     facesRef.current = det.faces;
+    lastBoxesRef.current = det.personBoxes;
     drawOverlay(img.naturalWidth, img.naturalHeight, det.personBoxes, det.faces, []);
     setCount(det.personBoxes.length);
     updateDemographics(det.faces);
@@ -363,6 +367,7 @@ export default function Dashboard({
       const runFaces = frameCountRef.current % 3 === 0; // throttle face model
       const det = await detectFrame(v, runFaces);
       if (runFaces) facesRef.current = det.faces;
+      lastBoxesRef.current = det.personBoxes;
 
       // Track
       const tracks = trackerRef.current.update(det.personBoxes);
@@ -397,6 +402,54 @@ export default function Dashboard({
     rafRef.current = requestAnimationFrame(loop);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Estimate a reasonable crowd capacity for the current scene.
+  //
+  // Strategy:
+  // 1. If we have at least one detected person, use their average bounding-box
+  //    area as the "footprint" of one person in this scene. Capacity is then
+  //    the usable frame area divided by that footprint, scaled by a crowding
+  //    factor (people pack tighter than their bounding boxes).
+  // 2. If nothing is detected yet, fall back to a resolution-based estimate
+  //    (assume an "average" person occupies ~6% of the frame).
+  function autoCalcCapacity() {
+    const v = videoRef.current;
+    const img = imageRef.current;
+    const w = v?.videoWidth || img?.naturalWidth || 0;
+    const h = v?.videoHeight || img?.naturalHeight || 0;
+
+    if (!w || !h) {
+      setAutoHint("Can't auto-detect yet — start a video or pick an image first.");
+      return;
+    }
+
+    const frameArea = w * h;
+    const usableArea = frameArea * 0.85; // ignore edges / non-walkable area
+    const crowdingFactor = 1.4; // people stand ~40% closer than their bbox
+
+    const boxes = lastBoxesRef.current;
+    let perPersonArea: number;
+    let basis: string;
+
+    if (boxes.length > 0) {
+      let total = 0;
+      for (const b of boxes) total += b[2] * b[3];
+      perPersonArea = total / boxes.length;
+      basis = `${boxes.length} ${boxes.length === 1 ? "person" : "people"} in view`;
+    } else {
+      // No detections — assume a typical person occupies ~6% of the frame
+      perPersonArea = frameArea * 0.06;
+      basis = "no people in view yet (resolution-based estimate)";
+    }
+
+    const raw = (usableArea * crowdingFactor) / Math.max(1, perPersonArea);
+    const estimated = Math.max(2, Math.min(5000, Math.round(raw)));
+    setCapacity(estimated);
+    setAutoHint(
+      `Auto-set to ${estimated} from ${basis}. Tweak the number if it looks off.`,
+    );
+    pushAlert(`Capacity auto-set to ${estimated}`, "info");
+  }
 
   function ensureHeatGrid() {
     const { w, h } = heatGridSizeRef.current;
@@ -1056,25 +1109,52 @@ export default function Dashboard({
               )}
             </div>
 
-            {/* Capacity slider */}
+            {/* Capacity slider + manual entry + auto-detect */}
             <div className="px-5 py-4 border-t border-[#d6c08a] flex flex-wrap items-center gap-5">
               <div className="flex-1 min-w-[260px]">
-                <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center justify-between mb-1.5 gap-3">
                   <label className="text-[12px] font-semibold text-[#5a4226] tracking-wide">
                     Crowd capacity for this scene
                   </label>
-                  <span className="text-[12px] text-[#8a6f44]">
-                    {capacity} people
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={1}
+                      max={5000}
+                      step={1}
+                      value={capacity}
+                      onChange={(e) => {
+                        const n = Number(e.target.value);
+                        if (Number.isFinite(n) && n >= 1)
+                          setCapacity(Math.min(5000, Math.round(n)));
+                      }}
+                      className="w-20 px-2 py-1 text-[12px] rounded-md border border-[#b59868] bg-[#fffaf0] text-[#2b1d0e] focus:outline-none focus:border-[#740001] focus:ring-2 focus:ring-[#740001]/20"
+                      title="Type the maximum number of people this scene should hold"
+                    />
+                    <span className="text-[12px] text-[#8a6f44]">people</span>
+                    <button
+                      type="button"
+                      onClick={autoCalcCapacity}
+                      className="text-[11px] font-semibold uppercase tracking-wide px-2.5 py-1 rounded-md border border-[#b59868] text-[#5a4226] hover:bg-[#efd6c1] transition"
+                      title="Estimate capacity from the current scene using detected people and frame size"
+                    >
+                      Auto from scene
+                    </button>
+                  </div>
                 </div>
                 <input
                   type="range"
                   min={1}
-                  max={80}
+                  max={Math.max(80, capacity)}
                   value={capacity}
                   onChange={(e) => setCapacity(Number(e.target.value))}
                   className="w-full accent-[#740001]"
                 />
+                {autoHint && (
+                  <div className="mt-1 text-[11px] text-[#8a6f44] italic">
+                    {autoHint}
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-2 text-[12px] text-[#8a6f44]">
                 <Dot color="#10b981" /> Safe
