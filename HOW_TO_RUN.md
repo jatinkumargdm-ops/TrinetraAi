@@ -47,15 +47,40 @@ When it opens the picker, approve the package(s) it shows, then run:
 pnpm install
 ```
 
-## 4. Start TRINETRA AI
+## 4. Install & start MongoDB (needed for sign-in)
 
-In the same terminal:
+The app shows a **sign-in / create account** page before the dashboard. Accounts are stored in a local MongoDB database, so you need MongoDB running on your PC.
+
+1. **Install MongoDB Community Edition (Windows)**
+   Download from https://www.mongodb.com/try/download/community → run the installer → choose **Complete** → keep the default option **"Install MongoDB as a Service"** (this means MongoDB will start automatically every time you turn on your PC). Click Next/Install through the rest.
+
+   On macOS, install with Homebrew:
+   ```bash
+   brew tap mongodb/brew
+   brew install mongodb-community@7.0
+   brew services start mongodb-community@7.0
+   ```
+
+2. **Verify it's running** (Windows PowerShell):
+   ```powershell
+   Get-Service MongoDB
+   ```
+   You should see `Status: Running`. If not, run `Start-Service MongoDB`.
+
+You don't need to create a database manually — the app creates one called `trinetra` the first time you sign up.
+
+## 5. Start TRINETRA AI
+
+In the same terminal, from the project root:
 
 ```powershell
-pnpm --filter @workspace/crowd-intel dev
+pnpm dev
 ```
 
-Do not run `pnpm dev` at the project root. This repo's app lives inside the `@workspace/crowd-intel` workspace, so the command above is the correct one.
+This starts **two** things at once:
+
+- the **auth server** on `http://127.0.0.1:3001` (handles sign-in / sign-up against MongoDB)
+- the **frontend** on `http://localhost:22338`
 
 You'll see a line like:
 
@@ -65,7 +90,11 @@ You'll see a line like:
 
 Hold **Ctrl** and click that link, or just open it in Chrome / Edge.
 
-## 4A. If you get `Cannot find native binding`
+> **Tip:** the very first time you open the page, click **"Create one"** under the sign-in form to make your account. After that, you can sign in normally. If you see _"Can't reach the auth server…"_, MongoDB isn't running — go back to step 4.
+
+> If you only want the visual demo without sign-in, you can still run just the frontend with `pnpm --filter @workspace/crowd-intel dev`, but the sign-in gate will block you until the auth server is up.
+
+## 5A. If you get `Cannot find native binding`
 
 On some Windows PCs, pnpm can skip an optional native package used by Tailwind/Vite. If you see an error like `Cannot find native binding` or `failed to load config from ... vite.config.ts`, run these commands in the project root:
 
@@ -73,7 +102,7 @@ On some Windows PCs, pnpm can skip an optional native package used by Tailwind/V
 Remove-Item -Recurse -Force node_modules
 pnpm approve-builds
 pnpm install
-pnpm --filter @workspace/crowd-intel dev
+pnpm dev
 ```
 
 If you are using **cmd** instead of PowerShell, use this version:
@@ -82,7 +111,7 @@ If you are using **cmd** instead of PowerShell, use this version:
 rmdir /s /q node_modules
 pnpm approve-builds
 pnpm install
-pnpm --filter @workspace/crowd-intel dev
+pnpm dev
 ```
 
 Notes:
@@ -94,7 +123,7 @@ Notes:
 - If it still fails after that, delete `pnpm-lock.yaml` too, then run `pnpm install` again.
 - This fix is safe: it only reinstalls the project's dependencies.
 
-## 5. Use it
+## 6. Use it
 
 On the **landing page**, pick one:
 
@@ -117,7 +146,7 @@ In the top bar you can:
 
 Everything runs **inside your browser** — nothing is uploaded.
 
-## 6. Stop the app
+## 7. Stop the app
 
 In the terminal, press **Ctrl + C**, then **Y**.
 

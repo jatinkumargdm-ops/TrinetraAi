@@ -14,14 +14,25 @@ async function jsonOrError(res: Response): Promise<unknown> {
   try {
     body = await res.json();
   } catch {
-    // ignore
+    // body wasn't JSON (e.g. vite proxy returned a text 500 because the
+    // auth server isn't running)
   }
   if (!res.ok) {
-    const message =
-      (body && typeof body === "object" && "error" in body
+    const bodyError =
+      body && typeof body === "object" && "error" in body
         ? String((body as { error: unknown }).error)
-        : null) ??
-      `Request failed (${res.status})`;
+        : null;
+
+    let message: string;
+    if (bodyError) {
+      message = bodyError;
+    } else if (res.status >= 500) {
+      message =
+        "Can't reach the auth server. Make sure MongoDB is running and the auth-server is started (pnpm --filter @workspace/auth-server dev).";
+    } else {
+      message = `Request failed (${res.status})`;
+    }
+
     const err: AuthError = { message, status: res.status };
     throw err;
   }
