@@ -1,63 +1,58 @@
-import { MongoClient, type Db } from "mongodb";
+import pg from "pg";
 
-let cachedClient: MongoClient | null = null;
-let cachedDb: Db | null = null;
-let connectingPromise: Promise<Db> | null = null;
+const { Pool } = pg;
 
-function parseDbName(uri: string): string | null {
-  try {
-    const normalized = uri
-      .replace(/^mongodb\+srv:\/\//, "https://")
-      .replace(/^mongodb:\/\//, "http://");
-    const u = new URL(normalized);
-    const path = u.pathname.replace(/^\//, "").split("?")[0];
-    return path && path.length > 0 ? decodeURIComponent(path) : null;
-  } catch {
-    return null;
-  }
-}
+let cachedPool: pg.Pool | null = null;
 
-export async function getDb(): Promise<Db> {
-  if (cachedDb) return cachedDb;
-  if (connectingPromise) return connectingPromise;
-
-  const uri = process.env.MONGODB_URI;
-  if (!uri) {
+export function getPool(): pg.Pool {
+  if (cachedPool) return cachedPool;
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
     throw new Error(
-      "MONGODB_URI is not set. Add it as a Replit secret to enable login.",
+      "DATABASE_URL is not set. The Replit PostgreSQL database is not provisioned.",
     );
   }
+  cachedPool = new Pool({
+    connectionString,
+    max: 5,
+    idleTimeoutMillis: 30_000,
+  });
+  cachedPool.on("error", (err) => {
+    console.error("[db] unexpected pool error:", err);
+  });
+  return cachedPool;
+}
 
-  connectingPromise = (async () => {
-    const client = new MongoClient(uri, {
-      serverSelectionTimeoutMS: 8000,
-    });
-    await client.connect();
-    const dbName = parseDbName(uri) || "trinetra";
-    const db = client.db(dbName);
-    await db
-      .collection("users")
-      .createIndex({ email: 1 }, { unique: true })
-      .catch((err) => {
-        console.warn("[db] failed to ensure users.email index:", err.message);
-      });
-    cachedClient = client;
-    cachedDb = db;
-    console.log(`[db] connected to MongoDB database "${dbName}"`);
-    return db;
-  })();
+let initPromise: Promise<void> | null = null;
 
-  try {
-    return await connectingPromise;
-  } finally {
-    connectingPromise = null;
-  }
+export function ensureUsersTable(): Promise<void> {
+  if (initPromise) return initPromise;
+  initPromise = (async () => {
+    const pool = getPool();
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id            BIGSERIAL PRIMARY KEY,
+        email         TEXT NOT NULL UNIQUE,
+        name          TEXT NOT NULL,
+        password_hash TEXT NOT NULL,
+        created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+    await pool.query(
+      `CREATE INDEX IF NOT EXISTS users_email_lower_idx ON users (LOWER(email));`,
+    );
+    console.log("[db] connected to Postgres, users table ready");
+  })().catch((err) => {
+    initPromise = null;
+    throw err;
+  });
+  return initPromise;
 }
 
 export async function closeDb(): Promise<void> {
-  if (cachedClient) {
-    await cachedClient.close();
-    cachedClient = null;
-    cachedDb = null;
+  if (cachedPool) {
+    await cachedPool.end();
+    cachedPool = null;
+    initPromise = null;
   }
 }
