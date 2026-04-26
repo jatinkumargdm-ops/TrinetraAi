@@ -76,17 +76,13 @@ When you click **Use phone camera** on the dashboard you'll get a QR code. To sc
 
 **Easier alternative:** push the project to Replit and use the public Replit URL — it has a real HTTPS certificate, so the phone just works with no warnings.
 
-## 4B. Local database (optional)
+## 4B. Where do user accounts go?
 
-Sign-in needs somewhere to store accounts. Two options:
+- **Locally (VS Code):** there's nothing to set up. Accounts are saved to a small file at `artifacts/crowd-intel/.local/users.json` and persist across restarts. Multiple people can register on the same machine.
+- **On Replit:** accounts go into Replit's built-in PostgreSQL automatically.
+- **Optional override:** if you set `DATABASE_URL=postgres://...` in your environment, it'll use that Postgres instead of the local file.
 
-- **Easiest (auto):** set `DATABASE_URL` to a free Postgres (e.g. Neon) and put it in `.env` next to `package.json`:
-
-  ```
-  DATABASE_URL=postgres://user:pass@host/db
-  ```
-
-- **No database at all:** skip this — the dev server will refuse to register users. To test on a single machine without setting up Postgres, just deploy to Replit instead, where the database is provided automatically.
+The session signing key is auto-generated on first run and saved to `artifacts/crowd-intel/.local/jwt-secret`, so you stay logged in across restarts.
 
 ## 4A. If you get `Cannot find native binding`
 

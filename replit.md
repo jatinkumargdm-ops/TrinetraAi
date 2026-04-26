@@ -5,8 +5,10 @@ A browser-based crowd intelligence demo (people count, safety zone, foot traffic
 
 ## Auth / DB
 - Custom email+password auth (bcrypt + JWT cookie) lives in `artifacts/crowd-intel/server/auth.ts`.
-- Backed by **Replit's built-in PostgreSQL** (provisioned automatically). The `users` table is created on first request via `ensureUsersTable()` in `artifacts/crowd-intel/server/db.ts`.
-- `JWT_SECRET` is auto-set as a Replit env var. If missing, the server generates one and persists it to `artifacts/crowd-intel/.local/jwt-secret`. Multiple users can register and sign in with no extra setup.
+- User storage is pluggable, picked at startup in `artifacts/crowd-intel/server/userStore.ts`:
+  - If `DATABASE_URL` is set → uses Postgres (auto-provisioned on Replit).
+  - Else → falls back to a JSON file at `artifacts/crowd-intel/.local/users.json` (zero-setup local dev in VS Code).
+- `JWT_SECRET` env var is preferred; if missing, the server auto-generates one and persists it to `artifacts/crowd-intel/.local/jwt-secret` so sessions survive restarts.
 - API routes:
   - `POST /api/auth/register` — `{ email, password, name }` → sets `trinetra_session` cookie.
   - `POST /api/auth/login` — `{ email, password }`.
