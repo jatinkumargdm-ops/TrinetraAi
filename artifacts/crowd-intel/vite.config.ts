@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
+import basicSsl from "@vitejs/plugin-basic-ssl";
 
 const rawPort = process.env.PORT ?? "22338";
 
@@ -14,12 +15,17 @@ if (Number.isNaN(port) || port <= 0) {
 
 const basePath = process.env.BASE_PATH ?? "/";
 
+const isReplit = process.env.REPL_ID !== undefined;
+const isProd = process.env.NODE_ENV === "production";
+const enableLocalHttps = !isReplit && !isProd && process.env.HTTPS !== "false";
+
 export default defineConfig({
   base: basePath,
   plugins: [
     react(),
     tailwindcss(),
     runtimeErrorOverlay(),
+    ...(enableLocalHttps ? [basicSsl()] : []),
     ...(process.env.NODE_ENV !== "production" &&
     process.env.REPL_ID !== undefined
       ? [

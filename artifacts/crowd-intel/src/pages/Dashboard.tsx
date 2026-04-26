@@ -1908,6 +1908,17 @@ function PhoneLinkOverlay({
     await copy();
   };
 
+  let linkHostname = "";
+  try {
+    if (link?.url) linkHostname = new URL(link.url).hostname;
+  } catch {}
+  const linkUnreachable =
+    linkHostname === "localhost" || linkHostname === "127.0.0.1";
+  const linkInsecure =
+    !!link?.url &&
+    link.url.startsWith("http://") &&
+    !linkUnreachable;
+
   const shareTargets = link
     ? [
         {
@@ -1942,6 +1953,33 @@ function PhoneLinkOverlay({
         Open your phone's camera and point it at the code, or send the link to
         any phone with the buttons below. Keep this tab open while streaming.
       </div>
+
+      {linkUnreachable && (
+        <div className="mb-3 max-w-md text-left text-[12px] bg-[#7c2d12]/40 border border-[#fbbf24]/40 rounded-md px-3 py-2">
+          <div className="text-[#fde68a] font-semibold tracking-wide uppercase text-[10px]">
+            Phone can't reach this URL
+          </div>
+          <div className="text-white/90 mt-1">
+            The dashboard is open at <code>{linkHostname}</code>, which only
+            works on this same machine. Reopen the dashboard at your laptop's
+            LAN address (e.g. <code>https://192.168.x.x:{typeof window !== "undefined" ? window.location.port : ""}</code>)
+            so the phone can connect, then rescan.
+          </div>
+        </div>
+      )}
+      {linkInsecure && (
+        <div className="mb-3 max-w-md text-left text-[12px] bg-[#7c2d12]/40 border border-[#fbbf24]/40 rounded-md px-3 py-2">
+          <div className="text-[#fde68a] font-semibold tracking-wide uppercase text-[10px]">
+            Insecure URL — phone camera will be blocked
+          </div>
+          <div className="text-white/90 mt-1">
+            The link is on plain HTTP. Phone browsers refuse camera access
+            unless the page is HTTPS. Open the dashboard over{" "}
+            <code>https://</code> (the local Vite dev server is configured to
+            serve HTTPS) and rescan.
+          </div>
+        </div>
+      )}
 
       {link?.qrDataUrl ? (
         <img
