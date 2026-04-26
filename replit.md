@@ -1,14 +1,17 @@
 # TRINETRA AI / Marauder's Eye — Crowd Intelligence
 
 ## Overview
-A browser-based crowd intelligence demo (people count, safety zone, foot traffic, crowd flow, demographics, mask check, behaviour alerts). Uses TensorFlow.js + face-api in the browser — all ML inference runs client-side. A small Express API handles email/password auth backed by MongoDB.
+A browser-based crowd intelligence demo (people count, safety zone, foot traffic, crowd flow, demographics, mask check, behaviour alerts). Uses TensorFlow.js + face-api in the browser — all ML inference runs client-side. A small Express API handles email/password auth backed by Replit Postgres.
 
 ## Auth / DB
 - Custom email+password auth (bcrypt + JWT cookie) lives in `artifacts/crowd-intel/server/auth.ts`.
-- Backed by MongoDB; requires two Replit secrets to be functional:
-  - `MONGODB_URI` — your MongoDB Atlas connection string.
-  - `JWT_SECRET` — random string, 16+ chars, used to sign the session cookie.
-- Without these the UI still loads but sign-in / sign-up will return a configuration error.
+- Backed by **Replit's built-in PostgreSQL** (provisioned automatically). The `users` table is created on first request via `ensureUsersTable()` in `artifacts/crowd-intel/server/db.ts`.
+- `JWT_SECRET` is auto-set as a Replit env var. If missing, the server generates one and persists it to `artifacts/crowd-intel/.local/jwt-secret`. Multiple users can register and sign in with no extra setup.
+- API routes:
+  - `POST /api/auth/register` — `{ email, password, name }` → sets `trinetra_session` cookie.
+  - `POST /api/auth/login` — `{ email, password }`.
+  - `POST /api/auth/logout`.
+  - `GET  /api/auth/me` — returns current user from the session cookie.
 
 ## Stack
 - pnpm workspace monorepo

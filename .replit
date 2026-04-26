@@ -52,3 +52,8 @@ deploymentTarget = "autoscale"
 build = ["sh", "-c", "pnpm install --frozen-lockfile=false && pnpm --filter @workspace/crowd-intel run build"]
 publicDir = "artifacts/crowd-intel/dist/public"
 run = ["sh", "-c", "pnpm --filter @workspace/crowd-intel run start"]
+
+[userenv]
+
+[userenv.shared]
+JWT_SECRET = "-ULC2DtjYcvhFL-xAgGEQiEqws7DQ3R9d9F-LNKdWyyfWuVlr6QXfAvqG34cTODS"

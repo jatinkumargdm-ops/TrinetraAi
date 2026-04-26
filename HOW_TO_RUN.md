@@ -58,10 +58,35 @@ pnpm dev
 You'll see a line like:
 
 ```
-  ➜  Local:   http://localhost:22338/
+  [trinetra] dev server (HTTPS, self-signed) listening on :22338
 ```
 
-Hold **Ctrl** and click that link, or just open it in Chrome / Edge. The app loads straight into the landing page — no sign-in required.
+Open `https://localhost:22338/` in Chrome / Edge. Your browser will warn about the self-signed certificate — click **Advanced → Proceed**. You'll land on the **sign-in / sign-up page**: create an account with any email + password (8+ characters) and you're in.
+
+> Multiple people can sign up on the same machine — accounts are stored in a small local database file (or in Replit's PostgreSQL when running on Replit). Sign-in survives restarts.
+
+### Phone QR scanning (local dev only)
+
+When you click **Use phone camera** on the dashboard you'll get a QR code. To scan it from your phone:
+
+- Make sure phone + laptop are on the **same Wi-Fi**.
+- Find your laptop's LAN IP (`ipconfig` in PowerShell, look for `IPv4 Address`).
+- On the dashboard, replace `localhost` in the QR's URL with that IP, e.g. `https://192.168.1.42:22338/?broadcast=...`.
+- The phone will warn about the certificate — tap **Advanced → Proceed**. The phone needs HTTPS to allow camera access.
+
+**Easier alternative:** push the project to Replit and use the public Replit URL — it has a real HTTPS certificate, so the phone just works with no warnings.
+
+## 4B. Local database (optional)
+
+Sign-in needs somewhere to store accounts. Two options:
+
+- **Easiest (auto):** set `DATABASE_URL` to a free Postgres (e.g. Neon) and put it in `.env` next to `package.json`:
+
+  ```
+  DATABASE_URL=postgres://user:pass@host/db
+  ```
+
+- **No database at all:** skip this — the dev server will refuse to register users. To test on a single machine without setting up Postgres, just deploy to Replit instead, where the database is provided automatically.
 
 ## 4A. If you get `Cannot find native binding`
 
