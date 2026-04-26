@@ -10,18 +10,21 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 function describeDbError(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err);
+  if (/MONGODB_URI is not set/i.test(msg)) {
+    return "Database is not configured. MONGODB_URI secret is missing.";
+  }
+  if (/Authentication failed|bad auth/i.test(msg)) {
+    return "Database rejected credentials. Check the username/password in your MONGODB_URI secret.";
+  }
+  if (/tlsv1 alert internal error|SSL routines|ERR_SSL_TLSV1_ALERT/i.test(msg)) {
+    return "MongoDB Atlas refused the connection (TLS rejected). This usually means this server's IP is not allowed in Atlas Network Access. Open Atlas → Network Access → Add IP Address → 0.0.0.0/0 (Allow from Anywhere).";
+  }
   if (
     /ENOTFOUND|ECONNREFUSED|ETIMEDOUT|getaddrinfo|querySrv|server selection/i.test(
       msg,
     )
   ) {
     return "Database is unreachable. The MONGODB_URI secret looks invalid or the cluster is offline. Check your MongoDB Atlas connection string.";
-  }
-  if (/MONGODB_URI is not set/i.test(msg)) {
-    return "Database is not configured. MONGODB_URI secret is missing.";
-  }
-  if (/Authentication failed|bad auth/i.test(msg)) {
-    return "Database rejected credentials. Check the username/password in your MONGODB_URI secret.";
   }
   return "Server error";
 }
