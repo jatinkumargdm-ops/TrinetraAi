@@ -39,8 +39,15 @@ function AuthGatedApp() {
     return <AuthPage />;
   }
 
+  const handleSignOut = async () => {
+    await auth.logout();
+    setView({ kind: "landing" });
+  };
+
   return view.kind === "landing" ? (
     <Landing
+      user={auth.user ?? undefined}
+      onSignOut={handleSignOut}
       onStart={(source) => {
         unlockAudio();
         setView({ kind: "dashboard", source });
@@ -50,6 +57,8 @@ function AuthGatedApp() {
     <Dashboard
       key={JSON.stringify(view.source)}
       source={view.source}
+      user={auth.user ?? undefined}
+      onSignOut={handleSignOut}
       onChangeSource={() => setView({ kind: "landing" })}
     />
   );
