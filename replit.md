@@ -1,7 +1,14 @@
 # TRINETRA AI / Marauder's Eye — Crowd Intelligence
 
 ## Overview
-A browser-based crowd intelligence demo (people count, safety zone, foot traffic, crowd flow, demographics, mask check, behaviour alerts). Uses TensorFlow.js + face-api in the browser — no backend, all inference runs client-side. No login, no accounts.
+A browser-based crowd intelligence demo (people count, safety zone, foot traffic, crowd flow, demographics, mask check, behaviour alerts). Uses TensorFlow.js + face-api in the browser — all ML inference runs client-side. A small Express API handles email/password auth backed by MongoDB.
+
+## Auth / DB
+- Custom email+password auth (bcrypt + JWT cookie) lives in `artifacts/crowd-intel/server/auth.ts`.
+- Backed by MongoDB; requires two Replit secrets to be functional:
+  - `MONGODB_URI` — your MongoDB Atlas connection string.
+  - `JWT_SECRET` — random string, 16+ chars, used to sign the session cookie.
+- Without these the UI still loads but sign-in / sign-up will return a configuration error.
 
 ## Stack
 - pnpm workspace monorepo
