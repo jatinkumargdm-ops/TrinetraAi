@@ -37,6 +37,15 @@ function loadOrCreateLocalSecret(): string {
     // file doesn't exist yet
   }
   const generated = crypto.randomBytes(48).toString("base64url");
+  if (process.env.NODE_ENV === "production") {
+    console.warn(
+      "[auth] WARNING: NODE_ENV=production but no JWT_SECRET set. " +
+        "Generated an in-memory secret — every server restart will sign " +
+        "users out. Set JWT_SECRET in your hosting environment to a long " +
+        "random string (e.g. `openssl rand -base64 48`).",
+    );
+    return generated;
+  }
   try {
     fs.mkdirSync(secretsDir, { recursive: true });
     fs.writeFileSync(secretPath, generated, { mode: 0o600 });

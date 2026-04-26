@@ -15,11 +15,21 @@ async function main() {
   const app = express();
   app.disable("x-powered-by");
 
+  // Required when running behind a TLS-terminating proxy (Railway, Render,
+  // Fly, Heroku, etc.) so that req.secure is correct and `secure` cookies
+  // are actually sent on the proxied HTTPS connection.
+  app.set("trust proxy", 1);
+
   app.use("/api", createApiApp());
 
   const distDir = path.resolve(__dirname, "..", "dist", "public");
   app.use(express.static(distDir, { index: false, extensions: ["html"] }));
-  app.get("*", (_req, res) => {
+
+  // SPA fallback. NOTE: Express 5 / path-to-regexp v6 no longer accepts "*"
+  // as a path string — it throws "Missing parameter name". Use a middleware
+  // (no path) instead so every unmatched GET serves index.html.
+  app.use((req, res, next) => {
+    if (req.method !== "GET") return next();
     res.sendFile(path.join(distDir, "index.html"));
   });
 

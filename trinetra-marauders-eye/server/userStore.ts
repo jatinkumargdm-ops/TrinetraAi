@@ -32,17 +32,59 @@ let cached: UserStore | null = null;
 
 export function getUserStore(): UserStore {
   if (cached) return cached;
-  cached = process.env.DATABASE_URL
-    ? createPostgresStore(process.env.DATABASE_URL)
-    : createFileStore();
+  if (process.env.DATABASE_URL) {
+    cached = createPostgresStore(process.env.DATABASE_URL);
+  } else {
+    if (process.env.NODE_ENV === "production") {
+      console.warn(
+        "[db] WARNING: NODE_ENV=production but no DATABASE_URL set. " +
+          "Falling back to a JSON file user store on the local filesystem. " +
+          "On hosts with ephemeral disks (Railway, Render, Fly, Heroku) " +
+          "this means every user will be wiped on the next deploy/restart. " +
+          "Add a Postgres database and set DATABASE_URL to fix this.",
+      );
+    }
+    cached = createFileStore();
+  }
   return cached;
 }
 
+function shouldUseSsl(connectionString: string): boolean {
+  // Force SSL off for explicit local connections, force on for everything
+  // else (Railway, Render, Neon, Supabase all require SSL).
+  if (process.env.PGSSLMODE === "disable") return false;
+  if (process.env.PGSSLMODE === "require") return true;
+  try {
+    const u = new URL(connectionString);
+    if (u.searchParams.get("sslmode") === "disable") return false;
+    if (u.searchParams.get("sslmode") === "require") return true;
+    const host = u.hostname;
+    if (
+      host === "localhost" ||
+      host === "127.0.0.1" ||
+      host === "::1" ||
+      host.endsWith(".local") ||
+      host === "postgres" || // common Docker compose service name
+      host === "db"
+    ) {
+      return false;
+    }
+  } catch {
+    // fall through
+  }
+  return true;
+}
+
 function createPostgresStore(connectionString: string): UserStore {
+  const useSsl = shouldUseSsl(connectionString);
   const pool = new Pool({
     connectionString,
     max: 5,
     idleTimeoutMillis: 30_000,
+    // Managed Postgres providers (Railway, Render, Heroku, Neon, Supabase)
+    // serve certs that Node's default CA bundle doesn't trust, so we accept
+    // the cert without verifying its CA chain. Connection is still encrypted.
+    ssl: useSsl ? { rejectUnauthorized: false } : undefined,
   });
   pool.on("error", (err) => console.error("[db] pool error:", err));
 
@@ -62,7 +104,9 @@ function createPostgresStore(connectionString: string): UserStore {
       await pool.query(
         `CREATE INDEX IF NOT EXISTS users_email_lower_idx ON users (LOWER(email));`,
       );
-      console.log("[db] connected to Postgres, users table ready");
+      console.log(
+        `[db] connected to Postgres (ssl=${useSsl}), users table ready`,
+      );
     })().catch((err) => {
       initPromise = null;
       throw err;

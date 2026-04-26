@@ -1,0 +1,25 @@
+# Tells Railway / Coolify / Render-with-nixpacks how to build & run.
+# - Uses Node 20 + pnpm 9
+# - Installs ALL deps (dev + prod) so the build step has vite available
+# - Runs the production build, then starts via tsx
+# - tsx + typescript are listed under runtime "dependencies" in package.json
+#   so they survive any post-build prune.
+
+providers = ["node"]
+
+[variables]
+NODE_VERSION = "20"
+NPM_CONFIG_PRODUCTION = "false"
+CI = "true"
+
+[phases.setup]
+nixPkgs = ["nodejs_20", "pnpm-9_x"]
+
+[phases.install]
+cmds = ["pnpm install --frozen-lockfile=false"]
+
+[phases.build]
+cmds = ["pnpm build"]
+
+[start]
+cmd = "pnpm start"
