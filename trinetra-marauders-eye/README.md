@@ -59,12 +59,24 @@ $env:HTTPS="true"; pnpm dev  # Windows PowerShell
 
 ---
 
-## Deploy to Railway
+## Deployment
 
-This repo is preconfigured for Railway — `railway.json`, `nixpacks.toml`, and
-`Procfile` are all included.
+This repo is preconfigured for **four** hosting options out of the box. Pick
+whichever you prefer — all of them auto-build and use `/api/health` for
+health checks.
 
-### Step-by-step
+| Host | Config file | One-liner |
+|---|---|---|
+| **Railway** | `railway.json` + `nixpacks.toml` | Push to GitHub → New project → Deploy from repo |
+| **Render** | `render.yaml` | New + → Blueprint → point at repo → Apply |
+| **Fly.io** | `fly.toml` + `Dockerfile` | `fly launch --copy-config && fly deploy` |
+| **Docker** (anywhere) | `Dockerfile` | `docker build -t trinetra . && docker run -p 5000:5000 -e DATABASE_URL=… -e JWT_SECRET=… trinetra` |
+
+All four require the same two env vars: `DATABASE_URL` (Postgres) and
+`JWT_SECRET` (long random string). `PORT` is auto-injected by every host.
+
+### Deploy to Railway — step-by-step
+
 1. **Push this folder to GitHub** as its own repo (the `trinetra-marauders-eye/`
    folder must be the repo root, not a subfolder — Railway can't build a
    subfolder out of the box).
@@ -136,6 +148,10 @@ trinetra-marauders-eye/
 ├── tsconfig.json
 ├── components.json
 ├── railway.json        Railway build/start/healthcheck config
+├── render.yaml         Render blueprint (web + Postgres)
+├── fly.toml            Fly.io app config (uses Dockerfile)
+├── Dockerfile          Multi-stage image for any container host
+├── .dockerignore
 ├── nixpacks.toml       Build steps for nixpacks-based hosts
 ├── Procfile            Backup start command
 ├── .node-version       Pin Node 20
