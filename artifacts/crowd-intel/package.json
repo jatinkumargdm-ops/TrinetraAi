@@ -4,8 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --config vite.config.ts --host 0.0.0.0",
+    "dev": "tsx watch server/dev.ts",
     "build": "vite build --config vite.config.ts",
+    "start": "NODE_ENV=production tsx server/index.ts",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
@@ -93,6 +94,7 @@
     "jsonwebtoken": "^9.0.3",
     "mongodb": "^7.2.0",
     "peerjs": "^1.5.5",
-    "qrcode": "^1.5.4"
+    "qrcode": "^1.5.4",
+    "selfsigned": "^5.5.0"
   }
 }

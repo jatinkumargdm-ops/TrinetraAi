@@ -2,7 +2,9 @@ import { useState } from "react";
 import Landing, { type SourceConfig } from "./pages/Landing";
 import Dashboard from "./pages/Dashboard";
 import Broadcaster from "./pages/Broadcaster";
+import AuthPage from "./pages/AuthPage";
 import { unlockAudio } from "./lib/audio";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
 
 type View =
   | { kind: "landing" }
@@ -15,12 +17,26 @@ function readBroadcastId(): string | null {
   return id && id.trim().length > 0 ? id.trim() : null;
 }
 
-export default function App() {
-  const broadcastId = readBroadcastId();
+function AuthGatedApp() {
+  const auth = useAuth();
   const [view, setView] = useState<View>({ kind: "landing" });
 
-  if (broadcastId) {
-    return <Broadcaster peerId={broadcastId} />;
+  if (auth.status === "loading") {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-[#5a4226] font-quill italic">
+        <div className="flex flex-col items-center gap-3">
+          <div
+            className="w-10 h-10 rounded-full border-2 border-[#b59868] border-t-[#740001]"
+            style={{ animation: "spin 0.9s linear infinite" }}
+          />
+          <div>Consulting the Marauder's Map…</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (auth.status !== "authenticated") {
+    return <AuthPage />;
   }
 
   return view.kind === "landing" ? (
@@ -36,5 +52,22 @@ export default function App() {
       source={view.source}
       onChangeSource={() => setView({ kind: "landing" })}
     />
+  );
+}
+
+export default function App() {
+  const broadcastId = readBroadcastId();
+
+  // The phone broadcaster is opened from a QR shared by an authenticated
+  // dashboard owner. It only needs the peerId in the URL — no login required
+  // on the phone itself.
+  if (broadcastId) {
+    return <Broadcaster peerId={broadcastId} />;
+  }
+
+  return (
+    <AuthProvider>
+      <AuthGatedApp />
+    </AuthProvider>
   );
 }
